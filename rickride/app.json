@@ -24,9 +24,9 @@
     "userInterfaceStyle": "light",
 
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/icon.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffc700"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -34,8 +34,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffc700"
       }
     }
   }

@@ -8,10 +8,15 @@ const express = require("express");
 const User = require("./models/users");
 const app = express();
 
+const setupSwagger = require("./swagger");
+
 app.use(helmet());
 app.use(hpp());
 app.use(cors());
 app.use(express.json());
+
+// Initialize Swagger docs
+setupSwagger(app);
 
 app.use("/api/v1", require("./routes"));
 

@@ -13,6 +13,8 @@ app.use(hpp());
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/v1", require("./routes"));
+
 app.get("/", (req, res) => {
   const result = User.find();
   result.then((users) => {

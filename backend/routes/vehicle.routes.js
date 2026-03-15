@@ -15,6 +15,45 @@ const vehicleController = require("../controllers/vehicle.controller");
  *   post:
  *     summary: Register a vehicle
  *     tags: [Vehicle]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - driverId
+ *               - type
+ *               - reg_number
+ *               - capicity
+ *             properties:
+ *               driverId:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [CAR, RICKSHAW]
+ *                 example: "RICKSHAW"
+ *               reg_number:
+ *                 type: string
+ *                 example: "MH12AB1234"
+ *               capicity:
+ *                 type: integer
+ *                 example: 3
+ *               rcDocUrl:
+ *                 type: string
+ *               insuranceDocUrl:
+ *                 type: string
+ *               photoUrl:
+ *                 type: string
+ *               make:
+ *                 type: string
+ *                 example: "Bajaj"
+ *               model:
+ *                 type: string
+ *                 example: "RE"
+ *               year:
+ *                 type: integer
+ *                 example: 2022
  *     responses:
  *       200:
  *         description: Successfully hit register vehicle route

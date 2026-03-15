@@ -15,6 +15,12 @@ const driverController = require("../controllers/driver.controller");
  *   get:
  *     summary: Get driver profile
  *     tags: [Driver]
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         description: Query parameter for userId (if not using auth token)
  *     responses:
  *       200:
  *         description: Successfully hit get driver profile route
@@ -27,6 +33,25 @@ router.get("/profile", driverController.getDriverProfile);
  *   put:
  *     summary: Update driver location
  *     tags: [Driver]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - longitude
+ *               - latitude
+ *             properties:
+ *               driverId:
+ *                 type: string
+ *                 description: Provide if not using auth token
+ *               longitude:
+ *                 type: number
+ *                 example: 79.0882
+ *               latitude:
+ *                 type: number
+ *                 example: 21.1458
  *     responses:
  *       200:
  *         description: Successfully hit update driver location route
@@ -39,6 +64,22 @@ router.put("/location", driverController.updateLocation);
  *   put:
  *     summary: Update driver status
  *     tags: [Driver]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               driverId:
+ *                 type: string
+ *                 description: Provide if not using auth token
+ *               status:
+ *                 type: string
+ *                 enum: [offline, online, onTrip]
+ *                 example: "online"
  *     responses:
  *       200:
  *         description: Successfully hit update driver status route

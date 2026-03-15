@@ -15,6 +15,33 @@ const bookingController = require("../controllers/booking.controller");
  *   post:
  *     summary: Create a booking
  *     tags: [Booking]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - riderId
+ *               - fare
+ *               - paymentMethod
+ *             properties:
+ *               riderId:
+ *                 type: string
+ *               tripId:
+ *                 type: string
+ *               autoDriverId:
+ *                 type: string
+ *               seats:
+ *                 type: integer
+ *                 example: 1
+ *               fare:
+ *                 type: number
+ *                 example: 25.50
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [RAZORPAY, CASH, WALLET]
+ *                 example: "CASH"
  *     responses:
  *       200:
  *         description: Successfully hit create booking route

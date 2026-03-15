@@ -15,12 +15,61 @@ const tripController = require("../controllers/trip.controller");
  *   post:
  *     summary: Create a trip
  *     tags: [Trip]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - driverId
+ *               - origin
+ *               - destination
+ *               - distance
+ *               - dipartureTime
+ *               - totalSeats
+ *               - pricePerSeat
+ *             properties:
+ *               driverId:
+ *                 type: string
+ *               origin:
+ *                 type: array
+ *                 items:
+ *                   type: number
+ *                 description: "[longitude, latitude]"
+ *                 example: [79.0882, 21.1458]
+ *               destination:
+ *                 type: array
+ *                 items:
+ *                   type: number
+ *                 description: "[longitude, latitude]"
+ *                 example: [79.0900, 21.1500]
+ *               distance:
+ *                 type: number
+ *                 example: 15.5
+ *               dipartureTime:
+ *                 type: string
+ *                 format: date-time
+ *               totalSeats:
+ *                 type: integer
+ *                 example: 3
+ *               pricePerSeat:
+ *                 type: number
+ *                 example: 150
+ *               notes:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Successfully hit create trip route
  *   get:
  *     summary: Get all trips
  *     tags: [Trip]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Optional status filter (e.g. open)
  *     responses:
  *       200:
  *         description: Successfully hit get trips route

@@ -15,6 +15,26 @@ const paymentController = require("../controllers/payment.controller");
  *   post:
  *     summary: Create a payment
  *     tags: [Payment]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bookingId
+ *               - amount
+ *               - gateway
+ *             properties:
+ *               bookingId:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *                 example: 25.50
+ *               gateway:
+ *                 type: string
+ *                 enum: [STRIP, PAYPAL, RAZORPAY]
+ *                 example: "RAZORPAY"
  *     responses:
  *       200:
  *         description: Successfully hit create payment route
@@ -27,6 +47,27 @@ router.post("/create", paymentController.createPayment);
  *   post:
  *     summary: Verify a payment
  *     tags: [Payment]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentId
+ *               - status
+ *             properties:
+ *               paymentId:
+ *                 type: string
+ *               gatewayTransactionId:
+ *                 type: string
+ *                 example: "pay_XYZ123"
+ *               status:
+ *                 type: string
+ *                 enum: [pending, completed, failed]
+ *                 example: "completed"
+ *               rawResponse:
+ *                 type: object
  *     responses:
  *       200:
  *         description: Successfully hit verify payment route

@@ -4,8 +4,8 @@ const ratingSchema = new mongoose.Schema({
     driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', required: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String },
-    trip:{type:mongoose.Schema.Type.ObjectId , ref:'Trip' , required:false},
-    booking:{type:mongoose.Schema.Type.ObjectId , ref:'Booking' , required:false},
+    trip:{type:mongoose.Schema.Types.ObjectId , ref:'Trip' , required:false},
+    booking:{type:mongoose.Schema.Types.ObjectId , ref:'Booking' , required:false},
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 })

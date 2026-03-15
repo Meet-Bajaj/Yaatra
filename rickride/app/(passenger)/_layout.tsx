@@ -33,6 +33,15 @@ export default function PassengerLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="confirmation"
+      
+        options={{
+          href: null,
+          title: 'Confirmation',
+          tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

@@ -22,13 +22,18 @@ const initializeSockets = (io) => {
       const { driverId, longitude, latitude } = data;
       if (driverId && longitude && latitude) {
         try {
-          // Perform quick Redis cache or DB update
-          await Driver.findByIdAndUpdate(driverId, {
-            location: {
-               type: "Point",
-               coordinates: [longitude, latitude]
-            }
+          // Import Redis Client dynamically to avoid circular issues
+          const { redisClient } = require("../config/redis");
+
+          // Fast Memory Write: Store coordinates dynamically inside Redis using GeoHashing
+          await redisClient.geoAdd("driver_locations", {
+            longitude: parseFloat(longitude),
+            latitude: parseFloat(latitude),
+            member: driverId.toString(),
           });
+
+          // Set temporary string flag for "online" 
+          await redisClient.setEx(`driver_status:${driverId}`, 3600, "online");
 
           // Broadcast to any riders tracking this specific driver
           nspLocation.to(`track_${driverId}`).emit("location-updated", {
@@ -38,7 +43,7 @@ const initializeSockets = (io) => {
             timestamp: Date.now(),
           });
         } catch (err) {
-          logger.error("Socket DB Update error:", err);
+          logger.error("Socket Redis Update error:", err);
         }
       }
     });

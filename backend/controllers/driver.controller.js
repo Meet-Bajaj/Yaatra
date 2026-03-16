@@ -42,6 +42,18 @@ const updateLocation = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Driver not found" });
     }
 
+    try {
+       const { redisClient } = require("../config/redis");
+       await redisClient.geoAdd("driver_locations", {
+         longitude: parseFloat(longitude),
+         latitude: parseFloat(latitude),
+         member: driverId.toString(),
+       });
+       await redisClient.setEx(`driver_status:${driverId}`, 3600, "online");
+    } catch (redisErr) {
+       console.error("Redis REST geoAdd error:", redisErr);
+    }
+
     res.status(200).json({ success: true, message: "Driver location updated", data: driver });
   } catch (error) {
     next(error);

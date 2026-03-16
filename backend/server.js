@@ -1,5 +1,9 @@
 require("dotenv").config();
 require("./config/db");
+const { connectRedis } = require("./config/redis");
+
+// Ensure Redis fires up alongside Mongo
+connectRedis();
 
 const hpp = require("hpp");
 const cors = require("cors");

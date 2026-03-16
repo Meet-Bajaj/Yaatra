@@ -28,11 +28,28 @@ const createTrip = async (req, res, next) => {
 const getTrips = async (req, res, next) => {
   try {
     // Optionally filter by status or location
-    const { status } = req.query;
+    const { status, page = 1, limit = 10 } = req.query;
     const filter = status ? { status } : { status: "open" };
 
-    const trips = await Trip.find(filter).populate("driver");
-    res.status(200).json({ success: true, count: trips.length, data: trips });
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const trips = await Trip.find(filter)
+      .skip(skip)
+      .limit(limitNum)
+      .populate("driver");
+      
+    const totalCount = await Trip.countDocuments(filter);
+
+    res.status(200).json({ 
+      success: true, 
+      count: trips.length, 
+      total: totalCount, 
+      page: pageNum, 
+      totalPages: Math.ceil(totalCount / limitNum),
+      data: trips 
+    });
   } catch (error) {
     next(error);
   }
@@ -62,7 +79,29 @@ const updateTripStatus = async (req, res, next) => {
         return res.status(400).json({ success: false, message: "Invalid trip status" });
     }
 
-    const trip = await Trip.findByIdAndUpdate(id, { status }, { new: true });
+    const currentTrip = await Trip.findById(id);
+    if (!currentTrip) {
+      return res.status(404).json({ success: false, message: "Trip not found" });
+    }
+
+    // State Machine Constraints
+    const logicMap = {
+      open: ["full", "ongoing", "cancelled"],
+      full: ["ongoing", "open", "cancelled"], // driver can drop passengers opening seats
+      ongoing: ["completed", "cancelled"],
+      completed: [], // Cannot mutate
+      cancelled: [], // Cannot mutate
+    };
+
+    if (!logicMap[currentTrip.status].includes(status)) {
+       return res.status(400).json({ 
+         success: false, 
+         message: `Invalid state transition from ${currentTrip.status} to ${status}` 
+       });
+    }
+
+    currentTrip.status = status;
+    const trip = await currentTrip.save();
     if (!trip) {
       return res.status(404).json({ success: false, message: "Trip not found" });
     }

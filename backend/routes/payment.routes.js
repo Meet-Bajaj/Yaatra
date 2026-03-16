@@ -74,4 +74,22 @@ router.post("/create", paymentController.createPayment);
  */
 router.post("/verify", paymentController.verifyPayment);
 
+/**
+ * @swagger
+ * /api/v1/payment/webhook:
+ *   post:
+ *     summary: Razorpay Webhook processor
+ *     tags: [Payment]
+ *     description: Used strictly for Razorpay server-to-server callbacks
+ *     responses:
+ *       200:
+ *         description: Webhook received successfully
+ */
+// Webhooks require the raw buffer for signature hash matching
+router.post(
+  "/webhook", 
+  express.raw({ type: "application/json" }), 
+  paymentController.razorpayWebhook
+);
+
 module.exports = router;

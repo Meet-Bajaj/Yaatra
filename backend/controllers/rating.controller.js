@@ -30,9 +30,27 @@ const createRating = async (req, res, next) => {
 const getRatings = async (req, res, next) => {
   try {
     const { id: driverId } = req.params; // driverId
+    const { page = 1, limit = 10 } = req.query;
 
-    const ratings = await Rating.find({ driver: driverId }).populate("user", "name avatarUrl");
-    res.status(200).json({ success: true, count: ratings.length, data: ratings });
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const ratings = await Rating.find({ driver: driverId })
+      .skip(skip)
+      .limit(limitNum)
+      .populate("user", "name avatarUrl");
+
+    const totalCount = await Rating.countDocuments({ driver: driverId });
+
+    res.status(200).json({ 
+      success: true, 
+      count: ratings.length, 
+      total: totalCount,
+      page: pageNum,
+      totalPages: Math.ceil(totalCount / limitNum),
+      data: ratings 
+    });
   } catch (error) {
     next(error);
   }

@@ -21,18 +21,18 @@ export function RideOptionTabs() {
           return (
             <TouchableOpacity
               key={opt.id}
-              className={`mr-3 py-2 px-4 rounded-full flex-row items-center ${
-                isSelected ? 'bg-primary' : 'bg-surfaceLight border border-gray-200'
+              className={`mr-3 py-2.5 px-5 rounded-full flex-row items-center ${
+                isSelected ? 'bg-primary shadow-md' : 'bg-surfaceLight border border-gray-200'
               }`}
               onPress={() => setSelected(opt.id)}
             >
               <Ionicons 
                 name={opt.icon as any} 
-                size={16} 
+                size={18} 
                 color={isSelected ? 'white' : 'black'} 
               />
               <Text 
-                className={`ml-2 font-semibold ${
+                className={`ml-2 font-bold text-[15px] ${
                   isSelected ? 'text-white' : 'text-surfaceDark'
                 }`}
               >

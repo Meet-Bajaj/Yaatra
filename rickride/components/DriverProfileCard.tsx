@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 export function DriverProfileCard() {
   return (
-    <View className="bg-surfaceLight p-4 rounded-xl shadow-sm mb-4 flex-row items-center border border-gray-100">
-      <View className="w-14 h-14 bg-gray-200 rounded-full mr-4 justify-center items-center">
+    <View className="bg-surfaceLight p-5 rounded-2xl shadow-md mb-4 flex-row items-center border border-gray-50">
+      <View className="w-16 h-16 bg-gray-100 rounded-full mr-4 justify-center items-center">
         <Ionicons name="person" size={28} color="gray" />
       </View>
       <View className="flex-1">

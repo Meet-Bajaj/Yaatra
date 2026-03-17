@@ -5,7 +5,7 @@ import { theme } from '../constants/theme';
 
 export function PaymentToggle() {
   return (
-    <TouchableOpacity className="bg-surfaceLight p-4 rounded-xl shadow-sm mb-6 flex-row items-center justify-between border border-gray-100">
+    <TouchableOpacity className="bg-surfaceLight p-5 rounded-2xl shadow-md mb-6 flex-row items-center justify-between border border-gray-50">
       <View className="flex-row items-center">
         <Ionicons name="wallet-outline" size={24} color={theme.colors.primary} />
         <Text className="ml-3 text-lg font-bold text-surfaceDark">RikRide Wallet</Text>

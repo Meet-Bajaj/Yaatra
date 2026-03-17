@@ -5,9 +5,9 @@ import { theme } from '../constants/theme';
 
 export function LocationSelector() {
   return (
-    <View className="bg-surfaceLight rounded-xl p-4 shadow-sm mb-4">
+    <View className="bg-surfaceLight rounded-2xl p-5 shadow-md mb-5 border border-gray-50">
       {/* Pickup Input */}
-      <View className="flex-row items-center border-b border-gray-100 pb-3 mb-3">
+      <View className="flex-row items-center border-b border-gray-100 pb-4 mb-4">
         <View className="w-6 items-center">
           <View className="w-3 h-3 rounded-full bg-primary" />
         </View>

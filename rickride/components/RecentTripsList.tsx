@@ -12,13 +12,13 @@ export function RecentTripsList() {
     <View className="mb-6">
       <Text className="text-lg font-bold text-surfaceDark mb-3">Recent Trips</Text>
       {RECENT_TRIPS.map((trip) => (
-        <TouchableOpacity key={trip.id} className="flex-row items-center bg-surfaceLight p-3 rounded-xl mb-2 shadow-sm">
-          <View className="bg-gray-100 p-2 rounded-full mr-3">
-            <Ionicons name={trip.icon as any} size={20} color="gray" />
+        <TouchableOpacity key={trip.id} className="flex-row items-center bg-surfaceLight p-4 rounded-2xl mb-3 shadow-sm border border-gray-100">
+          <View className="bg-gray-100 p-3 rounded-full mr-4">
+            <Ionicons name={trip.icon as any} size={22} color="#4b5563" />
           </View>
           <View>
-            <Text className="text-base font-semibold text-surfaceDark">{trip.destination}</Text>
-            <Text className="text-sm text-gray-500">{trip.address}</Text>
+            <Text className="text-[17px] font-bold text-surfaceDark mb-0.5">{trip.destination}</Text>
+            <Text className="text-[14px] text-gray-500 font-medium">{trip.address}</Text>
           </View>
         </TouchableOpacity>
       ))}

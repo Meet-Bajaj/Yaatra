@@ -14,10 +14,10 @@ export function DropdownSelect({ label, value, placeholder, onPress }: DropdownS
     <View className="mb-4">
       <Text className="text-sm font-semibold text-gray-700 mb-1">{label}</Text>
       <TouchableOpacity 
-        className="border border-gray-300 rounded-xl p-3 bg-surfaceLight flex-row justify-between items-center"
+        className="border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 flex-row justify-between items-center"
         onPress={onPress}
       >
-        <Text className={`text-base ${value ? 'text-surfaceDark' : 'text-gray-400'}`}>
+        <Text className={`text-[16px] font-medium ${value ? 'text-surfaceDark' : 'text-gray-400'}`}>
           {value || placeholder}
         </Text>
         <Ionicons name="chevron-down" size={20} color="gray" />

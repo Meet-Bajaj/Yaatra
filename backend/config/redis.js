@@ -3,6 +3,9 @@ const logger = require("../utils/logger");
 
 const redisClient = createClient({
   url: process.env.REDIS_URI || "redis://localhost:6379",
+  socket: {
+    reconnectStrategy: false, // Prevents infinite reconnection spam if Redis isn't running locally
+  }
 });
 
 redisClient.on("error", (err) => logger.error("Redis Client Error", err));

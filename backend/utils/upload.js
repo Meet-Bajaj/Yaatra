@@ -1,47 +1,51 @@
 const multer = require("multer");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs");
 
-// Setup Multer internally memory storage so we can stream to S3
-const storage = multer.memoryStorage();
+// Ensure the directory exists
+const uploadDir = path.join(__dirname, "../public/uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Setup Multer local disk storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const fileExtension = path.extname(file.originalname);
+    const randomName = crypto.randomBytes(16).toString("hex");
+    cb(null, `${randomName}${fileExtension}`);
+  }
+});
+
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-const s3Client = new S3Client({
-  region: process.env.AWS_S3_REGION || "ap-south-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "MOCK_ACCESS_KEY",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "MOCK_SECRET_KEY",
-  },
-});
+const uploadToLocal = async (fileBuffer, originalName, mimeType) => {
+  // Provided for compatibility if some services use this method directly
+  // However, normally multer middleware handles the upload directly.
+  return new Promise((resolve, reject) => {
+    const fileExtension = path.extname(originalName);
+    const randomName = crypto.randomBytes(16).toString("hex");
+    const fileName = `${randomName}${fileExtension}`;
+    const filePath = path.join(uploadDir, fileName);
 
-const uploadToS3 = async (fileBuffer, originalName, mimeType) => {
-  const fileExtension = path.extname(originalName);
-  const randomName = crypto.randomBytes(16).toString("hex");
-  const fileName = `${randomName}${fileExtension}`;
-
-  const bucketName = process.env.AWS_S3_BUCKET || "rikride-kyc";
-
-  const command = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: fileName,
-    Body: fileBuffer,
-    ContentType: mimeType,
+    fs.writeFile(filePath, fileBuffer, (err) => {
+      if (err) {
+        console.error("Local Upload Error:", err);
+        return reject(new Error("Failed to upload file locally"));
+      }
+      resolve(`/uploads/${fileName}`);
+    });
   });
-
-  try {
-    await s3Client.send(command);
-    return `https://${bucketName}.s3.${process.env.AWS_S3_REGION || "ap-south-1"}.amazonaws.com/${fileName}`;
-  } catch (error) {
-    console.error("S3 Upload Error:", error);
-    throw new Error("Failed to upload file to S3");
-  }
 };
 
 module.exports = {
   upload,
-  uploadToS3,
+  uploadToLocal,
 };

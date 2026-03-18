@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Pressable, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInLeft } from 'react-native-reanimated';
 
 interface Column {
   key: string;
@@ -29,17 +30,23 @@ export function DataTable({ columns, data }: DataTableProps) {
 
           {/* Body */}
           {data.map((row, idx) => (
-            <View key={idx} className="flex-row p-4 border-b border-gray-100 items-center">
-              {columns.map(col => (
-                <View key={col.key} className="w-40 mr-4 flex-row items-center">
-                  <Text className="text-surfaceDark" numberOfLines={1}>{String(row[col.key])}</Text>
+            <Animated.View key={idx} entering={FadeInLeft.duration(300).delay(idx * 100)}>
+              <Pressable className="flex-row p-4 border-b border-gray-100 items-center transition-colors hover:bg-gray-50 active:bg-gray-100">
+                {columns.map(col => (
+                  <View key={col.key} className="w-40 mr-4 flex-row items-center">
+                    <Text className="text-surfaceDark" numberOfLines={1}>{String(row[col.key])}</Text>
+                  </View>
+                ))}
+                <View className="w-20 flex-row">
+                  <TouchableOpacity activeOpacity={0.7} style={{ marginRight: 10 }}>
+                    <Ionicons name="create-outline" size={20} color="blue" />
+                  </TouchableOpacity>
+                  <TouchableOpacity activeOpacity={0.7}>
+                    <Ionicons name="trash-outline" size={20} color="red" />
+                  </TouchableOpacity>
                 </View>
-              ))}
-              <View className="w-20 flex-row">
-                <Ionicons name="create-outline" size={20} color="blue" style={{ marginRight: 10 }} />
-                <Ionicons name="trash-outline" size={20} color="red" />
-              </View>
-            </View>
+              </Pressable>
+            </Animated.View>
           ))}
         </View>
       </ScrollView>

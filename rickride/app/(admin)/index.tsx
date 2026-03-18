@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ScrollView, Text } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { DashboardWidget } from '../../components/admin/DashboardWidget';
 import { DataTable } from '../../components/admin/DataTable';
 
@@ -22,21 +23,27 @@ export default function AdminDashboard() {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
       {/* Top Widgets */}
-      <View className="flex-row flex-wrap mb-8">
-        <DashboardWidget title="Total Users" value="1,245" icon="people" trend="12%" trendUp={true} />
-        <DashboardWidget title="Active Drivers" value="340" icon="car" trend="5%" trendUp={true} />
-        <DashboardWidget title="Completed Rides" value="8,920" icon="map" trend="2%" trendUp={false} />
-        <DashboardWidget title="Revenue" value="₹4.5L" icon="wallet" trend="18%" trendUp={true} />
-      </View>
+   
+      <Animated.View 
+        entering={FadeInDown.duration(400).delay(100)} 
+        style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 32, marginHorizontal: -8 }}
+      >
+        <DashboardWidget index={0} title="Total Users" value="1,245" icon="people" trend="12%" trendUp={true} />
+        <DashboardWidget index={1} title="Active Drivers" value="340" icon="car" trend="5%" trendUp={true} />
+        <DashboardWidget index={2} title="Completed Rides" value="8,920" icon="map" trend="2%" trendUp={false} />
+        <DashboardWidget index={3} title="Revenue" value="₹4.5L" icon="wallet" trend="18%" trendUp={true} />
+      </Animated.View>
 
       {/* Recent Rides Table */}
-      <View className="mb-4">
+      <Animated.View entering={FadeInUp.duration(500).delay(300)} className="mb-4">
         <View className="flex-row justify-between items-center mb-4 px-2">
           <Text className="text-xl font-bold text-surfaceDark">Recent Rides</Text>
-          <Text className="text-primary font-semibold cursor-pointer">View All</Text>
+          <Text className="text-primary font-semibold hover:opacity-80 active:opacity-60 cursor-pointer transition-opacity">
+            View All
+          </Text>
         </View>
         <DataTable columns={COLUMNS} data={MOCK_TABLE_DATA} />
-      </View>
+      </Animated.View>
     </ScrollView>
   );
 }

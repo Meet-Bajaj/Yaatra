@@ -1,12 +1,12 @@
 import axios from 'axios';
 
+import { getAuthToken } from '../store/useAuthStore';
+
 // Ensure the API url is pulled from the environment variables or falls back
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
 /**
  * Global Axios instance specifically configured for the RikRide Backend API.
- * Future auth token interception (e.g., pulling a JWT from SecureStore and appending to headers)
- * can be added here inside axiosInstance.interceptors.request.use().
  */
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -14,6 +14,18 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Request interceptor to append JWT Token
+apiClient.interceptors.request.use(
+  async (config) => {
+    const token = await getAuthToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Example response interceptor for global error handling:
 apiClient.interceptors.response.use(

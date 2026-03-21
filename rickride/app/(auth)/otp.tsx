@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput } from 'react-native';
-import { useRouter, Href } from 'expo-router';
+import { useRouter, Href, useLocalSearchParams } from 'expo-router';
+import { authService } from '../../services/authService';
+import { useAuthStore } from '../../store/useAuthStore';
 import { AuthCard } from '../../components/AuthCard';
 import { Button } from '../../components/Button';
 import { IllustrationHeader } from '../../components/IllustrationHeader';
@@ -21,10 +23,35 @@ export default function OTPScreen() {
     }
   };
 
-  const verifyOTP = () => {
-    // Determine where to go based on mock role. For now, we simulate Passenger Home.
-    // Replace with true auth logic later.
-    router.replace('/(passenger)' as Href);
+  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const verifyOTP = async () => {
+    try {
+      setIsLoading(true);
+      const code = otp.join('');
+      // Standardize payload for your backend
+      const response = await authService.verifyOtp({ phone, otp: code });
+      
+      // Store token and user data globally directly matching your DB output
+      // Assuming response wraps this in { token, user }
+      const { token, user } = response;
+      await useAuthStore.getState().login(user, token);
+
+      // We explicitly route here or rely on _layout Auth Guard
+      if (user.role === 'driver') {
+        router.replace('/(driver)' as Href);
+      } else if (user.role === 'admin') {
+        router.replace('/(admin)' as Href);
+      } else {
+        router.replace('/(passenger)' as Href);
+      }
+    } catch (error) {
+      console.error('OTP Verification Error', error);
+      // You can add an Alert or local error state warning
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

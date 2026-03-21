@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text } from 'react-native';
 import { useRouter, Href } from 'expo-router';
+import { authService } from '../../services/authService';
 import { AuthCard } from '../../components/AuthCard';
 import { PhoneInput } from '../../components/PhoneInput';
 import { Button } from '../../components/Button';
@@ -10,9 +11,23 @@ export default function LoginScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
 
-  const handleSendOTP = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSendOTP = async () => {
     if (phone.length >= 10) {
-      router.push('/(auth)/otp' as Href);
+      try {
+        setIsLoading(true);
+        // Call backend to send SMS
+        await authService.requestOtp({ phone });
+        
+        // Navigate and pass phone parameter to OTP screen
+        router.push({ pathname: '/(auth)/otp', params: { phone } } as Href);
+      } catch (error) {
+        console.error('Failed to send OTP', error);
+        // Fallback or error indication here
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

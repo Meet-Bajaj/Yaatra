@@ -5,6 +5,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { useAuthStore, getAuthToken } from '../store/useAuthStore';
 import { userService } from '../services/userService';
+import Toast from 'react-native-toast-message';
 
 export const unstable_settings = {
   initialRouteName: '(auth)',
@@ -65,6 +66,7 @@ export default function RootLayout() {
           <Stack.Screen name="(admin)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ title: 'Modal', presentation: 'modal' }} />
         </Stack>
+        <Toast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

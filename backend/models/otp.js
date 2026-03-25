@@ -1,15 +1,31 @@
-const mongoose = require('mongoose');
-const otpSchema = new mongoose.Schema({
-    phone: { type: String, required: true },
-    code: { type: String, required: true },
-    expiresAt: { type: Date, required: true },
-    used: { type: Boolean, default: false },
-    created: { type: Date, default: Date.now },
-    updated: { type: Date, default: Date.now }
-});
+const mongoose = require("mongoose");
 
-// auto delete expired OTPs after 10 minutes
-otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 600 });
+const otpSchema = new mongoose.Schema(
+  {
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    code: {
+      type: String,
+      required: true,
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
+    used: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-const OTP = mongoose.model('OTP', otpSchema);
-module.exports = OTP;
+otpSchema.index({ phone: 1, createdAt: -1 });
+otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+module.exports = mongoose.model("OTP", otpSchema);

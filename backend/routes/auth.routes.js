@@ -1,6 +1,11 @@
 const express = require("express");
-const router = express.Router();
+const { body } = require("express-validator");
+
 const authController = require("../controllers/auth.controller");
+const { authLimiter } = require("../middlewares/rateLimiter");
+const { validate } = require("../middlewares/validate");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -21,36 +26,41 @@ const authController = require("../controllers/auth.controller");
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - phone
+ *             required: [phone]
  *             properties:
  *               phone:
  *                 type: string
- *                 example: "+1234567890"
  *               name:
  *                 type: string
- *                 example: "John Doe"
  *               email:
  *                 type: string
- *                 example: "john@example.com"
  *               password:
  *                 type: string
- *                 example: "password123"
  *               role:
  *                 type: string
- *                 enum: [rider, driver, admin]
- *                 example: "rider"
+ *                 enum: [rider, driver]
  *     responses:
- *       200:
- *         description: Successfully hit register route
+ *       201:
+ *         description: Successfully registered
  */
-router.post("/register", authController.register);
+router.post(
+  "/register",
+  authLimiter,
+  validate([
+    body("phone").isString().trim().notEmpty(),
+    body("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
+    body("email").optional().isEmail(),
+    body("password").optional().isLength({ min: 8 }),
+    body("role").optional().isIn(["rider", "driver"]),
+  ]),
+  authController.register
+);
 
 /**
  * @swagger
  * /api/v1/auth/login:
  *   post:
- *     summary: Login an existing user
+ *     summary: Log in with phone number
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -58,17 +68,20 @@ router.post("/register", authController.register);
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - phone
+ *             required: [phone]
  *             properties:
  *               phone:
  *                 type: string
- *                 example: "+1234567890"
  *     responses:
  *       200:
- *         description: Successfully hit login route
+ *         description: OTP sent successfully or logged in
  */
-router.post("/login", authController.login);
+router.post(
+  "/login",
+  authLimiter,
+  validate([body("phone").isString().trim().notEmpty()]),
+  authController.login
+);
 
 /**
  * @swagger
@@ -82,20 +95,24 @@ router.post("/login", authController.login);
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - phone
- *               - code
+ *             required: [phone, code]
  *             properties:
  *               phone:
  *                 type: string
- *                 example: "+1234567890"
  *               code:
  *                 type: string
- *                 example: "123456"
  *     responses:
  *       200:
- *         description: Successfully hit verify-otp route
+ *         description: Successfully verified
  */
-router.post("/verify-otp", authController.verifyOTP);
+router.post(
+  "/verify-otp",
+  authLimiter,
+  validate([
+    body("phone").isString().trim().notEmpty(),
+    body("code").isString().trim().isLength({ min: 4, max: 6 }),
+  ]),
+  authController.verifyOTP
+);
 
 module.exports = router;

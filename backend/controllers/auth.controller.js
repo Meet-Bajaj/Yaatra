@@ -1,122 +1,87 @@
 const User = require("../models/users");
-const OTP = require("../models/otp");
-const jwt = require("jsonwebtoken");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { sendVerificationOTP, verifyOTP } = require("../services/auth.service");
+const { sendSuccess } = require("../utils/apiResponse");
+const AppError = require("../utils/appError");
+const { generateToken } = require("../utils/jwt");
+const { hashPassword } = require("../utils/password");
 
-const generateToken = (user) => {
-  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || "YOUR_SUPER_SECRET_KEY", {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+const register = asyncHandler(async (req, res) => {
+  const { phone, name, email, password, role } = req.body;
+
+  const existingUser = await User.findOne({
+    $or: [{ phone }, ...(email ? [{ email }] : [])],
   });
-};
+  if (existingUser) {
+    throw new AppError("A user with this phone or email already exists", 409);
+  }
 
-const register = async (req, res, next) => {
-  try {
-    const { phone, name, email, password, role } = req.body;
+  const user = await User.create({
+    phone,
+    name,
+    email,
+    password: password ? hashPassword(password) : undefined,
+    role: role || "rider",
+  });
 
-    if (!phone) {
-      return res.status(400).json({ success: false, message: "Phone number is required" });
-    }
+  const token = generateToken(user._id, user.role);
 
-    let user = await User.findOne({ phone });
-    if (user) {
-      return res.status(400).json({ success: false, message: "User with this phone number already exists" });
-    }
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "User registered successfully",
+    data: {
+      user,
+      token,
+    },
+  });
+});
 
-    user = await User.create({
+const login = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+
+  const user = await User.findOne({ phone });
+  if (!user || !user.isActive || user.isDeleted) {
+    throw new AppError("User not found", 404);
+  }
+
+  const otpDetails = await sendVerificationOTP(phone);
+
+  sendSuccess(res, {
+    message: "OTP sent successfully",
+    data: {
       phone,
-      name,
-      email,
-      password,
-      role: role || "rider",
-    });
+      delivery: otpDetails.delivery,
+      ...(otpDetails.mockCode ? { mockCode: otpDetails.mockCode } : {}),
+    },
+  });
+});
 
-    // Automatically generate a token upon successful registration for automatic login
-    const token = generateToken(user);
+const verifyUserOTP = asyncHandler(async (req, res) => {
+  const { phone, code } = req.body;
 
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      data: {
-        user,
-        token,
-      },
-    });
-  } catch (error) {
-    next(error);
+  const isValid = await verifyOTP(phone, code);
+  if (!isValid) {
+    throw new AppError("Invalid or expired OTP", 400);
   }
-};
 
-const login = async (req, res, next) => {
-  try {
-    const { phone } = req.body;
-
-    if (!phone) {
-      return res.status(400).json({ success: false, message: "Phone number is required" });
-    }
-
-    const user = await User.findOne({ phone });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Generate a mock OTP (e.g., 123456)
-    const otpCode = "123456"; 
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
-    await OTP.create({
-      phone,
-      code: otpCode,
-      expiresAt,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "OTP sent successfully (Mock: 123456)",
-    });
-  } catch (error) {
-    next(error);
+  const user = await User.findOne({ phone });
+  if (!user || !user.isActive || user.isDeleted) {
+    throw new AppError("User not found", 404);
   }
-};
 
-const verifyOTP = async (req, res, next) => {
-  try {
-    const { phone, code } = req.body;
+  const token = generateToken(user._id, user.role);
 
-    if (!phone || !code) {
-      return res.status(400).json({ success: false, message: "Phone and code are required" });
-    }
-
-    const otpRecord = await OTP.findOne({ phone, code, used: false, expiresAt: { $gt: new Date() } });
-
-    if (!otpRecord) {
-      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
-    }
-
-    // Mark OTP as used
-    otpRecord.used = true;
-    await otpRecord.save();
-
-    const user = await User.findOne({ phone });
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found loging in" });
-    }
-
-    const token = generateToken(user);
-
-    res.status(200).json({
-      success: true,
-      message: "OTP verified successfully",
-      data: {
-        user,
-        token,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+  sendSuccess(res, {
+    message: "OTP verified successfully",
+    data: {
+      user,
+      token,
+    },
+  });
+});
 
 module.exports = {
-  register,
   login,
-  verifyOTP,
+  register,
+  verifyOTP: verifyUserOTP,
 };

@@ -22,9 +22,9 @@ module.exports = {
     ON_TRIP: "onTrip",
   },
   PAYMENT_GATEWAY: {
-    STRIPE: "STRIP", // using the schema's exact value 'STRIP'
-    PAYPAL: "PAYPAL",
     RAZORPAY: "RAZORPAY",
+    CASH: "CASH",
+    WALLET: "WALLET",
   },
   PAYMENT_STATUS: {
     PENDING: "pending",

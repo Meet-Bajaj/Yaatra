@@ -1,58 +1,78 @@
-const Vehicle = require("../models/vehicle");
 const Driver = require("../models/driver");
+const Vehicle = require("../models/vehicle");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { sendSuccess } = require("../utils/apiResponse");
+const AppError = require("../utils/appError");
 
-const registerVehicle = async (req, res, next) => {
-  try {
-    const { driverId, type, reg_number, capicity, rcDocUrl, insuranceDocUrl, photoUrl, make, model, year } = req.body;
-
-    if (!driverId || !type || !reg_number || !capicity) {
-      return res.status(400).json({ success: false, message: "driverId, type, reg_number, and capicity are required" });
-    }
-
-    // Check uniqueness
-    let existingVehicle = await Vehicle.findOne({ reg_number });
-    if (existingVehicle) {
-      return res.status(400).json({ success: false, message: "Vehicle with this registration number already exists" });
-    }
-
-    const vehicle = await Vehicle.create({
-      driver: driverId,
-      type,
-      reg_number,
-      capicity,
-      rcDocUrl,
-      insuranceDocUrl,
-      photoUrl,
-      make,
-      model,
-      year,
-    });
-
-    // Update the driver's vehicle reference
-    await Driver.findByIdAndUpdate(driverId, { vehicle: vehicle._id });
-
-    res.status(201).json({ success: true, message: "Vehicle registered successfully", data: vehicle });
-  } catch (error) {
-    next(error);
+const resolveDriverId = async (req) => {
+  if (req.body.driverId) {
+    return req.body.driverId;
   }
+
+  const driver = await Driver.findOne({ userId: req.user._id });
+  return driver ? driver._id : null;
 };
 
-const getVehicleDetails = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    const vehicle = await Vehicle.findById(id).populate("driver");
-    if (!vehicle) {
-      return res.status(404).json({ success: false, message: "Vehicle not found" });
-    }
-
-    res.status(200).json({ success: true, data: vehicle });
-  } catch (error) {
-    next(error);
+const registerVehicle = asyncHandler(async (req, res) => {
+  const driverId = await resolveDriverId(req);
+  if (!driverId) {
+    throw new AppError("Driver profile is required before registering a vehicle", 400);
   }
-};
+
+  const driver = await Driver.findById(driverId);
+  if (!driver) {
+    throw new AppError("Driver not found", 404);
+  }
+
+  const payload = {
+    driver: driverId,
+    type: req.body.type,
+    registrationNumber: req.body.registrationNumber || req.body.reg_number,
+    capacity: req.body.capacity || req.body.capicity,
+    rcDocUrl: req.body.rcDocUrl,
+    insuranceDocUrl: req.body.insuranceDocUrl,
+    photoUrl: req.body.photoUrl,
+    make: req.body.make,
+    model: req.body.model,
+    year: req.body.year,
+  };
+
+  const vehicle = await Vehicle.findOneAndUpdate({ driver: driverId }, payload, {
+    upsert: true,
+    new: true,
+    runValidators: true,
+    setDefaultsOnInsert: true,
+  }).populate("driver");
+
+  driver.vehicle = vehicle._id;
+  await driver.save();
+
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "Vehicle registered successfully",
+    data: vehicle,
+  });
+});
+
+const getVehicleDetails = asyncHandler(async (req, res) => {
+  const vehicle = await Vehicle.findById(req.params.id).populate({
+    path: "driver",
+    populate: {
+      path: "userId",
+      select: "name phone email",
+    },
+  });
+
+  if (!vehicle) {
+    throw new AppError("Vehicle not found", 404);
+  }
+
+  sendSuccess(res, {
+    data: vehicle,
+  });
+});
 
 module.exports = {
-  registerVehicle,
   getVehicleDetails,
+  registerVehicle,
 };

@@ -1,19 +1,47 @@
-const mongoose = require('mongoose');
-const vehicleSchema = new mongoose.Schema({
-    driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', required: true },
-    type: { type: String, enum: ['CAR', 'RICKSHAW'], required: true },
-    reg_number: { type: String, required: true, unique: true },
-    capicity: { type: Number, required: true },
-    rcDocUrl: { type: String, required: false },
-    insuranceDocUrl: { type: String, required: false },
-    photoUrl: { type: String, required: false },
-    make: { type: String, required: false },
-    model: { type: String, required: false },
-    year: { type: Number, required: false },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-})
+const mongoose = require("mongoose");
 
-const Vehicle = mongoose.model('Vehicle', vehicleSchema);
+const vehicleSchema = new mongoose.Schema(
+  {
+    driver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Driver",
+      required: true,
+      unique: true,
+    },
+    type: {
+      type: String,
+      enum: ["CAR", "RICKSHAW"],
+      required: true,
+    },
+    registrationNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      alias: "reg_number",
+    },
+    capacity: {
+      type: Number,
+      required: true,
+      min: 1,
+      alias: "capicity",
+    },
+    rcDocUrl: String,
+    insuranceDocUrl: String,
+    photoUrl: String,
+    make: String,
+    model: String,
+    year: Number,
+  },
+  {
+    timestamps: true,
+    toJSON: {
+      virtuals: true,
+    },
+    toObject: {
+      virtuals: true,
+    },
+  }
+);
 
-module.exports = Vehicle;
+module.exports = mongoose.model("Vehicle", vehicleSchema);

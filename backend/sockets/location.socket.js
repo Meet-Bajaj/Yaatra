@@ -1,64 +1,64 @@
+const { redisClient, isRedisReady } = require("../config/redis");
 const logger = require("../utils/logger");
-const Driver = require("../models/driver");
 
 const initializeSockets = (io) => {
-  // Namespace for driver location tracking
-  const nspLocation = io.of("/driver-location");
+  const locationNamespace = io.of("/driver-location");
 
-  nspLocation.on("connection", (socket) => {
-    logger.info(`New driver socket connected: ${socket.id}`);
+  locationNamespace.on("connection", (socket) => {
+    logger.info("Socket connected", { socketId: socket.id, namespace: "/driver-location" });
 
-    // Expect drivers to "authenticate" and join their personal tracking room
-    socket.on("register-driver", async (data) => {
-      const { driverId } = data;
-      if (driverId) {
-        socket.join(`driver_${driverId}`);
-        logger.info(`Socket ${socket.id} joined room: driver_${driverId}`);
+    socket.on("register-driver", ({ driverId }) => {
+      if (!driverId) {
+        return;
       }
+
+      socket.join(`driver_${driverId}`);
+      logger.info("Driver socket joined room", {
+        socketId: socket.id,
+        driverId,
+      });
     });
 
-    // Real-time location updates emitted by active drivers
-    socket.on("update-location", async (data) => {
-      const { driverId, longitude, latitude } = data;
-      if (driverId && longitude && latitude) {
-        try {
-          // Import Redis Client dynamically to avoid circular issues
-          const { redisClient } = require("../config/redis");
+    socket.on("track-driver", ({ driverId }) => {
+      if (!driverId) {
+        return;
+      }
 
-          // Fast Memory Write: Store coordinates dynamically inside Redis using GeoHashing
+      socket.join(`track_${driverId}`);
+      logger.info("Tracking room joined", {
+        socketId: socket.id,
+        driverId,
+      });
+    });
+
+    socket.on("update-location", async ({ driverId, longitude, latitude }) => {
+      if (!driverId || longitude === undefined || latitude === undefined) {
+        return;
+      }
+
+      try {
+        if (isRedisReady()) {
           await redisClient.geoAdd("driver_locations", {
-            longitude: parseFloat(longitude),
-            latitude: parseFloat(latitude),
-            member: driverId.toString(),
+            longitude: Number(longitude),
+            latitude: Number(latitude),
+            member: String(driverId),
           });
-
-          // Set temporary string flag for "online" 
           await redisClient.setEx(`driver_status:${driverId}`, 3600, "online");
-
-          // Broadcast to any riders tracking this specific driver
-          nspLocation.to(`track_${driverId}`).emit("location-updated", {
-            driverId,
-            longitude,
-            latitude,
-            timestamp: Date.now(),
-          });
-        } catch (err) {
-          logger.error("Socket Redis Update error:", err);
         }
-      }
-    });
 
-    // Handle rider joining a room to track a specific driver
-    socket.on("track-driver", (data) => {
-       const { driverId } = data;
-       if (driverId) {
-          socket.join(`track_${driverId}`);
-          logger.info(`Rider mapping socket ${socket.id} tracking driver_${driverId}`);
-       }
+        locationNamespace.to(`track_${driverId}`).emit("location-updated", {
+          driverId: String(driverId),
+          longitude: Number(longitude),
+          latitude: Number(latitude),
+          timestamp: Date.now(),
+        });
+      } catch (error) {
+        logger.error("Socket location update failed", error);
+      }
     });
 
     socket.on("disconnect", () => {
-      logger.info(`Socket disconnected: ${socket.id}`);
+      logger.info("Socket disconnected", { socketId: socket.id });
     });
   });
 };

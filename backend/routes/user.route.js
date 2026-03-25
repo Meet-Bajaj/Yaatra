@@ -1,6 +1,11 @@
 const express = require("express");
-const router = express.Router();
+const { body } = require("express-validator");
+
 const userController = require("../controllers/user.controller");
+const { protect } = require("../middlewares/authMiddleware");
+const { validate } = require("../middlewares/validate");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -15,18 +20,22 @@ const userController = require("../controllers/user.controller");
  *   get:
  *     summary: Get user profile
  *     tags: [User]
- *     parameters:
- *       - in: query
- *         name: userId
- *         schema:
- *           type: string
- *         description: Optional if missing auth token
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Successfully hit get user profile route
+ *         description: User profile data
+ */
+router.get("/profile", protect, userController.getUserProfile);
+
+/**
+ * @swagger
+ * /api/v1/user/profile:
  *   put:
  *     summary: Update user profile
  *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -34,21 +43,28 @@ const userController = require("../controllers/user.controller");
  *           schema:
  *             type: object
  *             properties:
- *               userId:
- *                 type: string
  *               name:
  *                 type: string
- *                 example: "Jane Doe"
  *               email:
  *                 type: string
- *                 example: "jane@example.com"
  *               avatarUrl:
+ *                 type: string
+ *               fcmToken:
  *                 type: string
  *     responses:
  *       200:
- *         description: Successfully hit update user profile route
+ *         description: User profile updated
  */
-router.get("/profile", userController.getUserProfile);
-router.put("/profile", userController.updateUserProfile);
+router.put(
+  "/profile",
+  protect,
+  validate([
+    body("name").optional().isString().trim().isLength({ min: 2, max: 100 }),
+    body("email").optional().isEmail(),
+    body("avatarUrl").optional().isURL(),
+    body("fcmToken").optional().isString().trim().notEmpty(),
+  ]),
+  userController.updateUserProfile
+);
 
 module.exports = router;

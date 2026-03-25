@@ -1,6 +1,10 @@
 const express = require("express");
-const router = express.Router();
+
 const adminController = require("../controllers/admin.controller");
+const { protect } = require("../middlewares/authMiddleware");
+const { authorize } = require("../middlewares/roleMiddleware");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -13,23 +17,14 @@ const adminController = require("../controllers/admin.controller");
  * @swagger
  * /api/v1/admin/stats:
  *   get:
- *     summary: Get administrative statistics
+ *     summary: Get admin statistics
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Successfully retrieved stats
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Admin stats route
+ *         description: Admin statistics
  */
-router.get("/stats", adminController.adminStats);
+router.get("/stats", protect, authorize("admin"), adminController.adminStats);
 
 module.exports = router;

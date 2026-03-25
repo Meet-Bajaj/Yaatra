@@ -1,97 +1,160 @@
-const Payment = require("../models/payment");
 const Booking = require("../models/booking");
+const Payment = require("../models/payment");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { sendPushNotification } = require("../services/notification.service");
+const {
+  createRazorpayOrder,
+  verifyRazorpaySignature,
+  verifyRazorpayWebhookSignature,
+} = require("../services/payment.service");
+const { sendSuccess } = require("../utils/apiResponse");
+const AppError = require("../utils/appError");
+const env = require("../config/env");
 
-const createPayment = async (req, res, next) => {
-  try {
-    const { bookingId, amount, gateway } = req.body;
+const markBookingPaid = async (payment, paymentReference) => {
+  const booking = await Booking.findByIdAndUpdate(
+    payment.booking,
+    {
+      status: "confirmed",
+      paymentReference,
+    },
+    { new: true }
+  ).populate("rider", "fcmToken");
 
-    if (!bookingId || amount === undefined || !gateway) {
-      return res.status(400).json({ success: false, message: "bookingId, amount, and gateway are required" });
-    }
+  if (booking && booking.rider && booking.rider.fcmToken) {
+    await sendPushNotification(
+      booking.rider.fcmToken,
+      "Payment confirmed",
+      "Your ride booking has been confirmed.",
+      {
+        bookingId: booking._id.toString(),
+        paymentId: payment._id.toString(),
+      }
+    );
+  }
+};
 
-    if (!["STRIP", "PAYPAL", "RAZORPAY"].includes(gateway)) {
-        return res.status(400).json({ success: false, message: "Invalid gateway" });
-    }
+const createPayment = asyncHandler(async (req, res) => {
+  const booking = await Booking.findById(req.body.bookingId);
+  if (!booking) {
+    throw new AppError("Booking not found", 404);
+  }
 
-    // Usually you would integrate Stripe/Razorpay SDK here to get a payment intent order ID
+  if (req.user.role !== "admin" && booking.rider.toString() !== req.user._id.toString()) {
+    throw new AppError("You are not allowed to create payment for this booking", 403);
+  }
 
-    const payment = await Payment.create({
-      booking: bookingId,
-      amount,
-      gateway,
-      status: "pending",
+  const gateway = req.body.gateway || booking.paymentMethod || "RAZORPAY";
+  const amount = req.body.amount !== undefined ? Number(req.body.amount) : booking.fare;
+
+  const payment = await Payment.create({
+    booking: booking._id,
+    amount,
+    gateway,
+    status: "pending",
+  });
+
+  let gatewayPayload = null;
+
+  if (gateway === "RAZORPAY") {
+    gatewayPayload = await createRazorpayOrder(amount, payment._id.toString(), {
+      bookingId: booking._id.toString(),
+      paymentId: payment._id.toString(),
     });
 
-    res.status(201).json({ success: true, message: "Payment intent created", data: payment });
-  } catch (error) {
-    next(error);
+    payment.gatewayOrderId = gatewayPayload.id;
+    payment.rawResponse = gatewayPayload;
+    await payment.save();
   }
-};
 
-const verifyPayment = async (req, res, next) => {
-  try {
-    const { paymentId, gatewayTransactionId, status, rawResponse } = req.body;
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "Payment created successfully",
+    data: {
+      payment,
+      gateway:
+        gateway === "RAZORPAY"
+          ? {
+              provider: "razorpay",
+              keyId: env.razorpay.keyId || "mock_key_id",
+              order: gatewayPayload,
+            }
+          : null,
+    },
+  });
+});
 
-    if (!paymentId || !status) {
-      return res.status(400).json({ success: false, message: "paymentId and status are required" });
-    }
+const verifyPayment = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.body.paymentId);
+  if (!payment) {
+    throw new AppError("Payment not found", 404);
+  }
 
-    const payment = await Payment.findByIdAndUpdate(
-      paymentId,
-      {
-        gatewayTransactionId,
-        status,
-        rawResponse,
-      },
-      { new: true }
+  if (payment.gateway === "RAZORPAY") {
+    const isValidSignature = verifyRazorpaySignature(
+      req.body.razorpayOrderId,
+      req.body.razorpayPaymentId,
+      req.body.razorpaySignature
     );
 
-    if (!payment) {
-      return res.status(404).json({ success: false, message: "Payment not found" });
+    if (!isValidSignature) {
+      payment.status = "failed";
+      await payment.save();
+      throw new AppError("Invalid Razorpay signature", 400);
     }
 
-    if (status === "completed") {
-       await Booking.findByIdAndUpdate(payment.booking, { status: "confirmed" });
-    }
+    payment.gatewayOrderId = req.body.razorpayOrderId;
+    payment.gatewayTransactionId = req.body.razorpayPaymentId;
+    payment.rawResponse = req.body;
+    payment.status = "completed";
+    await payment.save();
 
-    res.status(200).json({ success: true, message: "Payment verified", data: payment });
-  } catch (error) {
-    next(error);
+    await markBookingPaid(payment, req.body.razorpayPaymentId);
+  } else {
+    payment.gatewayTransactionId = req.body.gatewayTransactionId || payment.gatewayTransactionId;
+    payment.rawResponse = req.body.rawResponse || req.body;
+    payment.status = req.body.status || "completed";
+    await payment.save();
+
+    if (payment.status === "completed") {
+      await markBookingPaid(payment, payment.gatewayTransactionId || payment._id.toString());
+    }
   }
-};
 
-const crypto = require("crypto");
+  sendSuccess(res, {
+    message: "Payment verified successfully",
+    data: payment,
+  });
+});
 
-const razorpayWebhook = async (req, res, next) => {
-  try {
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || "default_mock_secret";
-    
-    // Express raw() provides req.body as a Buffer
-    const shasum = crypto.createHmac("sha256", secret);
-    shasum.update(req.body);
-    const digest = shasum.digest("hex");
-
-    const razorpaySignature = req.headers["x-razorpay-signature"];
-
-    if (digest !== razorpaySignature && process.env.NODE_ENV === "production") {
-       return res.status(400).json({ success: false, message: "Invalid signature" });
-    }
-
-    // In a real app we parse the buffer back to JSON to execute logic
-    const payload = JSON.parse(req.body.toString());
-    
-    // Example: Act upon payload.event == 'payment.captured'
-    // Update Booking similarly to verifyPayment
-    
-    res.status(200).json({ success: true, message: "Webhook received" });
-  } catch (error) {
-    console.error("Webhook Error:", error);
-    res.status(500).json({ success: false, message: "Webhook Processing Error" });
+const razorpayWebhook = asyncHandler(async (req, res) => {
+  const signature = req.headers["x-razorpay-signature"];
+  if (!verifyRazorpayWebhookSignature(req.body, signature)) {
+    throw new AppError("Invalid Razorpay webhook signature", 400);
   }
-};
+
+  const payload = JSON.parse(req.body.toString("utf8"));
+  if (payload.event === "payment.captured") {
+    const orderId = payload.payload.payment.entity.order_id;
+    const paymentId = payload.payload.payment.entity.id;
+
+    const payment = await Payment.findOne({ gatewayOrderId: orderId });
+    if (payment) {
+      payment.gatewayTransactionId = paymentId;
+      payment.rawResponse = payload;
+      payment.status = "completed";
+      await payment.save();
+      await markBookingPaid(payment, paymentId);
+    }
+  }
+
+  sendSuccess(res, {
+    message: "Webhook received successfully",
+  });
+});
 
 module.exports = {
   createPayment,
-  verifyPayment,
   razorpayWebhook,
+  verifyPayment,
 };

@@ -1,36 +1,72 @@
+const multer = require("multer");
+
+const env = require("../config/env");
+const AppError = require("../utils/appError");
+const logger = require("../utils/logger");
+
 const errorHandler = (err, req, res, next) => {
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  let message = err.message || "Server Error";
+  let statusCode = err.statusCode || res.statusCode || 500;
+  let message = err.message || "Internal server error";
+  let details = err.details;
 
-  // Mongoose bad ObjectId
+  if (statusCode < 400) {
+    statusCode = 500;
+  }
+
   if (err.name === "CastError") {
-    message = "Resource not found";
     statusCode = 404;
+    message = "Resource not found";
   }
 
-  // Mongoose duplicate key
   if (err.code === 11000) {
-    message = "Duplicate field value entered";
-    statusCode = 400;
+    statusCode = 409;
+    message = "A record with the same unique field already exists";
+    details = err.keyValue;
   }
 
-  // Mongoose validation error
   if (err.name === "ValidationError") {
-    message = Object.values(err.errors).map((val) => val.message).join(", ");
     statusCode = 400;
+    message = "Validation failed";
+    details = Object.values(err.errors).map((value) => value.message);
   }
 
-  res.status(statusCode).json({
+  if (err.name === "JsonWebTokenError") {
+    statusCode = 401;
+    message = "Invalid authentication token";
+  }
+
+  if (err.name === "TokenExpiredError") {
+    statusCode = 401;
+    message = "Authentication token has expired";
+  }
+
+  if (err instanceof multer.MulterError) {
+    statusCode = 400;
+    message = err.message;
+  }
+
+  logger.error("Request failed", {
+    method: req.method,
+    path: req.originalUrl,
+    statusCode,
+    message,
+    stack: err.stack,
+    details,
+  });
+
+  return res.status(statusCode).json({
     success: false,
     message,
-    stack: process.env.NODE_ENV === "production" ? null : err.stack,
+    ...(details ? { details } : {}),
+    ...(env.isProduction ? {} : { stack: err.stack }),
   });
 };
 
 const notFound = (req, res, next) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`);
-  res.status(404);
-  next(error);
+  next(new AppError(`Route not found: ${req.originalUrl}`, 404));
 };
 
-module.exports = { errorHandler, notFound };
+module.exports = {
+  errorHandler,
+  notFound,
+};

@@ -1,6 +1,11 @@
 const express = require("express");
-const router = express.Router();
+const { body, param } = require("express-validator");
+
 const bookingController = require("../controllers/booking.controller");
+const { protect } = require("../middlewares/authMiddleware");
+const { validate } = require("../middlewares/validate");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -15,16 +20,15 @@ const bookingController = require("../controllers/booking.controller");
  *   post:
  *     summary: Create a booking
  *     tags: [Booking]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - riderId
- *               - fare
- *               - paymentMethod
+ *             required: [paymentMethod]
  *             properties:
  *               riderId:
  *                 type: string
@@ -34,26 +38,37 @@ const bookingController = require("../controllers/booking.controller");
  *                 type: string
  *               seats:
  *                 type: integer
- *                 example: 1
  *               fare:
  *                 type: number
- *                 example: 25.50
  *               paymentMethod:
  *                 type: string
  *                 enum: [RAZORPAY, CASH, WALLET]
- *                 example: "CASH"
  *     responses:
- *       200:
- *         description: Successfully hit create booking route
+ *       201:
+ *         description: Booking created
  */
-router.post("/", bookingController.createBooking);
+router.post(
+  "/",
+  protect,
+  validate([
+    body("riderId").optional().isMongoId(),
+    body("tripId").optional().isMongoId(),
+    body("autoDriverId").optional().isMongoId(),
+    body("seats").optional().isInt({ min: 1 }),
+    body("fare").optional().isFloat({ min: 0 }),
+    body("paymentMethod").isIn(["RAZORPAY", "CASH", "WALLET"]),
+  ]),
+  bookingController.createBooking
+);
 
 /**
  * @swagger
  * /api/v1/booking/{id}:
  *   get:
- *     summary: Get a booking by ID
+ *     summary: Get booking details
  *     tags: [Booking]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -62,9 +77,14 @@ router.post("/", bookingController.createBooking);
  *           type: string
  *     responses:
  *       200:
- *         description: Successfully hit get booking route
+ *         description: Booking details
  */
-router.get("/:id", bookingController.getBooking);
+router.get(
+  "/:id",
+  protect,
+  validate([param("id").isMongoId()]),
+  bookingController.getBooking
+);
 
 /**
  * @swagger
@@ -72,6 +92,8 @@ router.get("/:id", bookingController.getBooking);
  *   post:
  *     summary: Cancel a booking
  *     tags: [Booking]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -80,8 +102,13 @@ router.get("/:id", bookingController.getBooking);
  *           type: string
  *     responses:
  *       200:
- *         description: Successfully hit cancel booking route
+ *         description: Booking cancelled
  */
-router.post("/:id/cancel", bookingController.cancelBooking);
+router.post(
+  "/:id/cancel",
+  protect,
+  validate([param("id").isMongoId()]),
+  bookingController.cancelBooking
+);
 
 module.exports = router;

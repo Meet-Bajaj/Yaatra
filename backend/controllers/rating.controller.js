@@ -1,60 +1,72 @@
+const Driver = require("../models/driver");
 const Rating = require("../models/rating");
+const User = require("../models/users");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { sendSuccess } = require("../utils/apiResponse");
+const AppError = require("../utils/appError");
 
-const createRating = async (req, res, next) => {
-  try {
-    const { userId, driverId, rating, comment, tripId, bookingId } = req.body;
-
-    if (!userId || !driverId || !rating) {
-      return res.status(400).json({ success: false, message: "userId, driverId, and rating are required" });
-    }
-
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ success: false, message: "Rating must be between 1 and 5" });
-    }
-
-    const newRating = await Rating.create({
-      user: userId,
-      driver: driverId,
-      rating,
-      comment,
-      trip: tripId,
-      booking: bookingId,
-    });
-
-    res.status(201).json({ success: true, message: "Rating created successfully", data: newRating });
-  } catch (error) {
-    next(error);
+const createRating = asyncHandler(async (req, res) => {
+  const driver = await Driver.findById(req.body.driverId);
+  if (!driver) {
+    throw new AppError("Driver not found", 404);
   }
-};
 
-const getRatings = async (req, res, next) => {
-  try {
-    const { id: driverId } = req.params; // driverId
-    const { page = 1, limit = 10 } = req.query;
+  const rating = await Rating.create({
+    user: req.user._id,
+    driver: req.body.driverId,
+    rating: Number(req.body.rating),
+    comment: req.body.comment,
+    trip: req.body.tripId || null,
+    booking: req.body.bookingId || null,
+  });
 
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
+  const [stats] = await Rating.aggregate([
+    { $match: { driver: rating.driver } },
+    {
+      $group: {
+        _id: "$driver",
+        averageRating: { $avg: "$rating" },
+      },
+    },
+  ]);
 
-    const ratings = await Rating.find({ driver: driverId })
+  if (stats) {
+    await User.findByIdAndUpdate(driver.userId, {
+      rating: Number(stats.averageRating.toFixed(1)),
+    });
+  }
+
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "Rating created successfully",
+    data: rating,
+  });
+});
+
+const getRatings = asyncHandler(async (req, res) => {
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 10);
+  const skip = (page - 1) * limit;
+
+  const [ratings, totalCount] = await Promise.all([
+    Rating.find({ driver: req.params.id })
+      .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum)
-      .populate("user", "name avatarUrl");
+      .limit(limit)
+      .populate("user", "name avatarUrl"),
+    Rating.countDocuments({ driver: req.params.id }),
+  ]);
 
-    const totalCount = await Rating.countDocuments({ driver: driverId });
-
-    res.status(200).json({ 
-      success: true, 
-      count: ratings.length, 
+  sendSuccess(res, {
+    data: ratings,
+    meta: {
+      count: ratings.length,
       total: totalCount,
-      page: pageNum,
-      totalPages: Math.ceil(totalCount / limitNum),
-      data: ratings 
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+      page,
+      totalPages: Math.ceil(totalCount / limit) || 1,
+    },
+  });
+});
 
 module.exports = {
   createRating,

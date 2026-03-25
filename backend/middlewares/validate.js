@@ -1,24 +1,30 @@
 const { validationResult } = require("express-validator");
 
+const AppError = require("../utils/appError");
+
 const validate = (validations) => {
   return async (req, res, next) => {
-    // Run all validations in the array
-    for (let validation of validations) {
-      const result = await validation.run(req);
-      if (result.errors.length) break;
-    }
+    await Promise.all(validations.map((validation) => validation.run(req)));
 
     const errors = validationResult(req);
     if (errors.isEmpty()) {
       return next();
     }
 
-    return res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors: errors.array(),
-    });
+    return next(
+      new AppError(
+        "Validation failed",
+        400,
+        errors.array().map((error) => ({
+          field: error.path,
+          message: error.msg,
+          value: error.value,
+        }))
+      )
+    );
   };
 };
 
-module.exports = { validate };
+module.exports = {
+  validate,
+};

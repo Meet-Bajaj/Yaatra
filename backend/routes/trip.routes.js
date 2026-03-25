@@ -1,6 +1,12 @@
 const express = require("express");
-const router = express.Router();
+const { body, param, query } = require("express-validator");
+
 const tripController = require("../controllers/trip.controller");
+const { protect } = require("../middlewares/authMiddleware");
+const { authorize } = require("../middlewares/roleMiddleware");
+const { validate } = require("../middlewares/validate");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -13,22 +19,17 @@ const tripController = require("../controllers/trip.controller");
  * @swagger
  * /api/v1/trip:
  *   post:
- *     summary: Create a trip
+ *     summary: Create a new trip
  *     tags: [Trip]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - driverId
- *               - origin
- *               - destination
- *               - distance
- *               - dipartureTime
- *               - totalSeats
- *               - pricePerSeat
+ *             required: [origin, destination, distance, totalSeats, pricePerSeat]
  *             properties:
  *               driverId:
  *                 type: string
@@ -36,52 +37,87 @@ const tripController = require("../controllers/trip.controller");
  *                 type: array
  *                 items:
  *                   type: number
- *                 description: "[longitude, latitude]"
- *                 example: [79.0882, 21.1458]
  *               destination:
  *                 type: array
  *                 items:
  *                   type: number
- *                 description: "[longitude, latitude]"
- *                 example: [79.0900, 21.1500]
  *               distance:
  *                 type: number
- *                 example: 15.5
- *               dipartureTime:
+ *               departureTime:
  *                 type: string
  *                 format: date-time
  *               totalSeats:
  *                 type: integer
- *                 example: 3
  *               pricePerSeat:
  *                 type: number
- *                 example: 150
  *               notes:
  *                 type: string
  *     responses:
- *       200:
- *         description: Successfully hit create trip route
+ *       201:
+ *         description: Trip created
+ */
+router.post(
+  "/",
+  protect,
+  authorize("driver", "admin"),
+  validate([
+    body("driverId").optional().isMongoId(),
+    body("origin").isArray({ min: 2, max: 2 }),
+    body("destination").isArray({ min: 2, max: 2 }),
+    body("distance").isFloat({ min: 0 }),
+    body("departureTime").optional().isISO8601(),
+    body("dipartureTime").optional().isISO8601(),
+    body("totalSeats").isInt({ min: 1 }),
+    body("pricePerSeat").isFloat({ min: 0 }),
+    body("notes").optional().isString().trim(),
+  ]),
+  tripController.createTrip
+);
+
+/**
+ * @swagger
+ * /api/v1/trip:
  *   get:
- *     summary: Get all trips
+ *     summary: Get trips
  *     tags: [Trip]
  *     parameters:
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
- *         description: Optional status filter (e.g. open)
+ *           enum: [open, full, ongoing, completed, cancelled]
+ *       - in: query
+ *         name: driverId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: Successfully hit get trips route
+ *         description: List of trips
  */
-router.post("/", tripController.createTrip);
-router.get("/", tripController.getTrips);
+router.get(
+  "/",
+  validate([
+    query("status").optional().isIn(["open", "full", "ongoing", "completed", "cancelled"]),
+    query("driverId").optional().isMongoId(),
+    query("page").optional().isInt({ min: 1 }),
+    query("limit").optional().isInt({ min: 1, max: 100 }),
+  ]),
+  tripController.getTrips
+);
 
 /**
  * @swagger
  * /api/v1/trip/{id}:
  *   get:
- *     summary: Get a trip by ID
+ *     summary: Get trip by ID
  *     tags: [Trip]
  *     parameters:
  *       - in: path
@@ -91,9 +127,13 @@ router.get("/", tripController.getTrips);
  *           type: string
  *     responses:
  *       200:
- *         description: Successfully hit get trip by id route
+ *         description: Trip details
  */
-router.get("/:id", tripController.getTripById);
+router.get(
+  "/:id",
+  validate([param("id").isMongoId()]),
+  tripController.getTripById
+);
 
 /**
  * @swagger
@@ -101,16 +141,38 @@ router.get("/:id", tripController.getTripById);
  *   put:
  *     summary: Update trip status
  *     tags: [Trip]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [open, full, ongoing, completed, cancelled]
  *     responses:
  *       200:
- *         description: Successfully hit update trip status route
+ *         description: Trip status updated
  */
-router.put("/:id/status", tripController.updateTripStatus);
+router.put(
+  "/:id/status",
+  protect,
+  authorize("driver", "admin"),
+  validate([
+    param("id").isMongoId(),
+    body("status").isIn(["open", "full", "ongoing", "completed", "cancelled"]),
+  ]),
+  tripController.updateTripStatus
+);
 
 module.exports = router;

@@ -1,120 +1,127 @@
+const Driver = require("../models/driver");
 const Trip = require("../models/trip");
+const asyncHandler = require("../middlewares/asyncHandler");
+const { sendSuccess } = require("../utils/apiResponse");
+const AppError = require("../utils/appError");
 
-const createTrip = async (req, res, next) => {
-  try {
-    const { driverId, origin, destination, distance, dipartureTime, totalSeats, pricePerSeat, notes } = req.body;
-
-    if (!driverId || !origin || !destination || !distance || !dipartureTime || !totalSeats || !pricePerSeat) {
-      return res.status(400).json({ success: false, message: "Missing required trip fields" });
-    }
-
-    const trip = await Trip.create({
-      driver: driverId,
-      origin: { type: "Point", coordinates: origin }, // expect [lng, lat]
-      destination: { type: "Point", coordinates: destination },
-      distance,
-      dipartureTime,
-      totalSeats,
-      pricePerSeat,
-      notes,
-    });
-
-    res.status(201).json({ success: true, message: "Trip created successfully", data: trip });
-  } catch (error) {
-    next(error);
+const resolveDriverId = async (req) => {
+  if (req.body.driverId) {
+    return req.body.driverId;
   }
+
+  const driver = await Driver.findOne({ userId: req.user._id });
+  return driver ? driver._id : null;
 };
 
-const getTrips = async (req, res, next) => {
-  try {
-    // Optionally filter by status or location
-    const { status, page = 1, limit = 10 } = req.query;
-    const filter = status ? { status } : { status: "open" };
+const createTrip = asyncHandler(async (req, res) => {
+  const driverId = await resolveDriverId(req);
+  if (!driverId) {
+    throw new AppError("Driver profile is required before creating a trip", 400);
+  }
 
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
+  const totalSeats = Number(req.body.totalSeats);
 
-    const trips = await Trip.find(filter)
+  const trip = await Trip.create({
+    driver: driverId,
+    origin: { type: "Point", coordinates: req.body.origin },
+    destination: { type: "Point", coordinates: req.body.destination },
+    distance: Number(req.body.distance),
+    departureTime: req.body.departureTime || req.body.dipartureTime,
+    totalSeats,
+    availableSeats: totalSeats,
+    pricePerSeat: Number(req.body.pricePerSeat),
+    notes: req.body.notes,
+  });
+
+  sendSuccess(res, {
+    statusCode: 201,
+    message: "Trip created successfully",
+    data: trip,
+  });
+});
+
+const getTrips = asyncHandler(async (req, res) => {
+  const page = Number(req.query.page || 1);
+  const limit = Number(req.query.limit || 10);
+  const skip = (page - 1) * limit;
+
+  const filter = {};
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+  if (req.query.driverId) {
+    filter.driver = req.query.driverId;
+  }
+
+  const [trips, totalCount] = await Promise.all([
+    Trip.find(filter)
+      .sort({ departureTime: 1 })
       .skip(skip)
-      .limit(limitNum)
-      .populate("driver");
-      
-    const totalCount = await Trip.countDocuments(filter);
+      .limit(limit)
+      .populate({
+        path: "driver",
+        populate: [
+          { path: "userId" },
+          { path: "vehicle" },
+        ],
+      }),
+    Trip.countDocuments(filter),
+  ]);
 
-    res.status(200).json({ 
-      success: true, 
-      count: trips.length, 
-      total: totalCount, 
-      page: pageNum, 
-      totalPages: Math.ceil(totalCount / limitNum),
-      data: trips 
-    });
-  } catch (error) {
-    next(error);
+  sendSuccess(res, {
+    data: trips,
+    meta: {
+      count: trips.length,
+      total: totalCount,
+      page,
+      totalPages: Math.ceil(totalCount / limit) || 1,
+    },
+  });
+});
+
+const getTripById = asyncHandler(async (req, res) => {
+  const trip = await Trip.findById(req.params.id).populate({
+    path: "driver",
+    populate: [
+      { path: "userId" },
+      { path: "vehicle" },
+    ],
+  });
+
+  if (!trip) {
+    throw new AppError("Trip not found", 404);
   }
-};
 
-const getTripById = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const trip = await Trip.findById(id).populate("driver");
-    
-    if (!trip) {
-      return res.status(404).json({ success: false, message: "Trip not found" });
-    }
+  sendSuccess(res, {
+    data: trip,
+  });
+});
 
-    res.status(200).json({ success: true, data: trip });
-  } catch (error) {
-    next(error);
+const updateTripStatus = asyncHandler(async (req, res) => {
+  const trip = await Trip.findById(req.params.id);
+  if (!trip) {
+    throw new AppError("Trip not found", 404);
   }
-};
 
-const updateTripStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!["open", "full", "ongoing", "completed", "cancelled"].includes(status)) {
-        return res.status(400).json({ success: false, message: "Invalid trip status" });
+  if (req.user.role !== "admin") {
+    const driver = await Driver.findOne({ userId: req.user._id });
+    if (!driver || driver._id.toString() !== trip.driver.toString()) {
+      throw new AppError("You are not allowed to modify this trip", 403);
     }
-
-    const currentTrip = await Trip.findById(id);
-    if (!currentTrip) {
-      return res.status(404).json({ success: false, message: "Trip not found" });
-    }
-
-    // State Machine Constraints
-    const logicMap = {
-      open: ["full", "ongoing", "cancelled"],
-      full: ["ongoing", "open", "cancelled"], // driver can drop passengers opening seats
-      ongoing: ["completed", "cancelled"],
-      completed: [], // Cannot mutate
-      cancelled: [], // Cannot mutate
-    };
-
-    if (!logicMap[currentTrip.status].includes(status)) {
-       return res.status(400).json({ 
-         success: false, 
-         message: `Invalid state transition from ${currentTrip.status} to ${status}` 
-       });
-    }
-
-    currentTrip.status = status;
-    const trip = await currentTrip.save();
-    if (!trip) {
-      return res.status(404).json({ success: false, message: "Trip not found" });
-    }
-
-    res.status(200).json({ success: true, message: "Trip status updated", data: trip });
-  } catch (error) {
-    next(error);
   }
-};
+
+  trip.status = req.body.status;
+  await trip.save();
+
+  sendSuccess(res, {
+    message: "Trip status updated",
+    data: trip,
+  });
+});
 
 module.exports = {
   createTrip,
-  getTrips,
   getTripById,
+  getTrips,
   updateTripStatus,
 };

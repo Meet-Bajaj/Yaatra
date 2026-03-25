@@ -1,6 +1,12 @@
 const express = require("express");
-const router = express.Router();
+const { body, param } = require("express-validator");
+
 const vehicleController = require("../controllers/vehicle.controller");
+const { protect } = require("../middlewares/authMiddleware");
+const { authorize } = require("../middlewares/roleMiddleware");
+const { validate } = require("../middlewares/validate");
+
+const router = express.Router();
 
 /**
  * @swagger
@@ -13,32 +19,27 @@ const vehicleController = require("../controllers/vehicle.controller");
  * @swagger
  * /api/v1/vehicle/register:
  *   post:
- *     summary: Register a vehicle
+ *     summary: Register a new vehicle
  *     tags: [Vehicle]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - driverId
- *               - type
- *               - reg_number
- *               - capicity
+ *             required: [type]
  *             properties:
  *               driverId:
  *                 type: string
  *               type:
  *                 type: string
  *                 enum: [CAR, RICKSHAW]
- *                 example: "RICKSHAW"
- *               reg_number:
+ *               registrationNumber:
  *                 type: string
- *                 example: "MH12AB1234"
- *               capicity:
+ *               capacity:
  *                 type: integer
- *                 example: 3
  *               rcDocUrl:
  *                 type: string
  *               insuranceDocUrl:
@@ -47,24 +48,40 @@ const vehicleController = require("../controllers/vehicle.controller");
  *                 type: string
  *               make:
  *                 type: string
- *                 example: "Bajaj"
  *               model:
  *                 type: string
- *                 example: "RE"
  *               year:
  *                 type: integer
- *                 example: 2022
  *     responses:
- *       200:
- *         description: Successfully hit register vehicle route
+ *       201:
+ *         description: Vehicle registered
  */
-router.post("/register", vehicleController.registerVehicle);
+router.post(
+  "/register",
+  protect,
+  authorize("driver", "admin"),
+  validate([
+    body("driverId").optional().isMongoId(),
+    body("type").isIn(["CAR", "RICKSHAW"]),
+    body("registrationNumber").optional().isString().trim().notEmpty(),
+    body("reg_number").optional().isString().trim().notEmpty(),
+    body("capacity").optional().isInt({ min: 1 }),
+    body("capicity").optional().isInt({ min: 1 }),
+    body("rcDocUrl").optional().isURL(),
+    body("insuranceDocUrl").optional().isURL(),
+    body("photoUrl").optional().isURL(),
+    body("make").optional().isString().trim(),
+    body("model").optional().isString().trim(),
+    body("year").optional().isInt({ min: 1980, max: 2100 }),
+  ]),
+  vehicleController.registerVehicle
+);
 
 /**
  * @swagger
  * /api/v1/vehicle/{id}:
  *   get:
- *     summary: Get vehicle details by ID
+ *     summary: Get vehicle details
  *     tags: [Vehicle]
  *     parameters:
  *       - in: path
@@ -74,8 +91,12 @@ router.post("/register", vehicleController.registerVehicle);
  *           type: string
  *     responses:
  *       200:
- *         description: Successfully hit get vehicle details route
+ *         description: Vehicle details
  */
-router.get("/:id", vehicleController.getVehicleDetails);
+router.get(
+  "/:id",
+  validate([param("id").isMongoId()]),
+  vehicleController.getVehicleDetails
+);
 
 module.exports = router;

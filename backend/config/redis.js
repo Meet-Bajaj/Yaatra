@@ -1,25 +1,56 @@
 const { createClient } = require("redis");
+
+const env = require("./env");
 const logger = require("../utils/logger");
 
 const redisClient = createClient({
-  url: process.env.REDIS_URI || "redis://localhost:6379",
+  url: env.redis.url,
   socket: {
-    reconnectStrategy: false, // Prevents infinite reconnection spam if Redis isn't running locally
+    reconnectStrategy(retries) {
+      if (retries > 5) {
+        return false;
+      }
+
+      return Math.min(retries * 200, 2000);
+    },
+  },
+});
+
+let connectionPromise = null;
+
+redisClient.on("error", (error) => {
+  if (redisClient.isReady) {
+    logger.error("Redis client error", error);
   }
 });
 
-redisClient.on("error", (err) => logger.error("Redis Client Error", err));
-redisClient.on("connect", () => logger.info("Redis Client connected successfully"));
+redisClient.on("connect", () => {
+  logger.info("Redis client connected");
+});
 
 const connectRedis = async () => {
-  try {
-    await redisClient.connect();
-  } catch (error) {
-    logger.error("Failed to connect to Redis", error);
+  if (redisClient.isReady || redisClient.isOpen) {
+    return redisClient;
   }
+
+  if (!connectionPromise) {
+    connectionPromise = redisClient.connect().catch((error) => {
+      logger.warn("Redis unavailable; continuing without cache/session acceleration.", {
+        message: error.message,
+      });
+      return null;
+    });
+  }
+
+  await connectionPromise;
+  connectionPromise = null;
+  return redisClient;
 };
+
+const isRedisReady = () => redisClient.isReady;
 
 module.exports = {
   redisClient,
   connectRedis,
+  isRedisReady,
 };

@@ -1,14 +1,30 @@
 const rateLimit = require("express-rate-limit");
 
+const env = require("../config/env");
+
 const apiLimiter = rateLimit({
-  windowMs: process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000, // Default 1 minute
-  max: process.env.RATE_LIMIT_MAX || 120, // Limit each IP
+  windowMs: env.rateLimit.windowMs,
+  max: env.rateLimit.max,
   message: {
     success: false,
     message: "Too many requests from this IP, please try again later.",
   },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-module.exports = { apiLimiter };
+const authLimiter = rateLimit({
+  windowMs: env.rateLimit.windowMs,
+  max: env.rateLimit.authMax,
+  message: {
+    success: false,
+    message: "Too many authentication attempts. Please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+module.exports = {
+  apiLimiter,
+  authLimiter,
+};

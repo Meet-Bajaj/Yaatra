@@ -1,57 +1,60 @@
-require("dotenv").config();
-require("./config/db");
-const { connectRedis } = require("./config/redis");
-
-// Ensure Redis fires up alongside Mongo
-connectRedis();
-
-const hpp = require("hpp");
-const cors = require("cors");
-const helmet = require("helmet");
-const express = require("express");
-const User = require("./models/users");
-const app = express();
-
-const setupSwagger = require("./swagger");
-
-app.use(helmet());
-app.use(hpp());
-app.use(cors());
-app.use(express.json());
-
 const http = require("http");
+
 const { Server } = require("socket.io");
-const { errorHandler, notFound } = require("./middlewares/errorHandler");
+
+const { createApp } = require("./app");
+const { connectDB } = require("./config/db");
+const env = require("./config/env");
+const { connectRedis } = require("./config/redis");
 const { initializeSockets } = require("./sockets/location.socket");
+const logger = require("./utils/logger");
 
-// Initialize Swagger docs
-setupSwagger(app);
-
-app.use("/api/v1", require("./routes"));
-
-app.get("/", (req, res) => {
-  res.send("Welcome to RickRide API");
-});
-
-// Setup 404 and global error handling middlewares
-app.use(notFound);
-app.use(errorHandler);
-
-// Create HTTP server instead of listening directly on Express app
+const app = createApp();
 const server = http.createServer(app);
 
-// Setup Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: env.corsOrigins.includes("*") ? true : env.corsOrigins,
     methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
   },
 });
 
-// Initialize socket namespaces
+app.set("io", io);
 initializeSockets(io);
 
-server.listen(5000, () => {
-  console.log("Server is running on http://localhost:5000");
+const startServer = async () => {
+  await connectDB();
+  await connectRedis();
+
+  server.listen(env.port, () => {
+    logger.info("Server started", {
+      port: env.port,
+      baseUrl: env.appBaseUrl,
+      docsUrl: `${env.appBaseUrl}/api-docs`,
+    });
+  });
+};
+
+const shutdown = async (signal) => {
+  logger.info(`Received ${signal}, shutting down gracefully`);
+
+  server.close(() => {
+    logger.info("HTTP server closed");
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    logger.error("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000).unref();
+};
+
+["SIGINT", "SIGTERM"].forEach((signal) => {
+  process.on(signal, () => shutdown(signal));
 });
 
+startServer().catch((error) => {
+  logger.error("Application failed to start", error);
+  process.exit(1);
+});

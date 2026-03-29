@@ -7,7 +7,7 @@ interface AuthCardProps {
 
 export function AuthCard({ children }: AuthCardProps) {
   return (
-    <View className="bg-surfaceLight rounded-t-[36px] px-8 pt-10 pb-12 w-full shadow-2xl elevation-xl absolute bottom-0 h-2/3">
+    <View className="elevation-xl absolute bottom-0 h-2/3 w-full rounded-t-[36px] bg-surfaceLight px-8 pb-12 pt-10 shadow-2xl">
       {children}
     </View>
   );

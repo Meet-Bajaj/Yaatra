@@ -1,68 +1,64 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
 
-const JWT_KEY = 'rikride_jwt_token';
+import { User } from '../services/types';
+import { sessionStorage } from '../utils/storage';
 
-export interface UserProfile {
-  _id: string;
-  phone: string;
-  role: 'passenger' | 'driver' | 'admin';
-  name?: string;
-}
+type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
 
 interface AuthState {
-  user: UserProfile | null;
+  hydrated: boolean;
+  status: AuthStatus;
   token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  
-  // Actions
-  login: (userData: UserProfile, token: string) => Promise<void>;
+  user: User | null;
+  hydrate: () => Promise<void>;
+  setSession: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
-  restoreSession: (token: string, userData: UserProfile) => void;
-  setLoading: (status: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>((set: any) => ({
-  user: null,
+export const useAuthStore = create<AuthState>((set) => ({
+  hydrated: false,
+  status: 'idle',
   token: null,
-  isAuthenticated: false,
-  isLoading: true, // Start true while we check SecureStore on boot
+  user: null,
 
-  login: async (userData: UserProfile, token: string) => {
-    // Web platform won't support expo-secure-store easily without fallbacks, 
-    // but building primarily for native
-    if (Platform.OS !== 'web') {
-      await SecureStore.setItemAsync(JWT_KEY, token);
-    } else {
-      localStorage.setItem(JWT_KEY, token);
-    }
-    set({ user: userData, token, isAuthenticated: true, isLoading: false });
+  hydrate: async () => {
+    const session = await sessionStorage.getSession();
+
+    set({
+      hydrated: true,
+      status: session ? 'authenticated' : 'unauthenticated',
+      token: session?.token || null,
+      user: (session?.user as User | undefined) || null,
+    });
+  },
+
+  setSession: async (token, user) => {
+    await sessionStorage.setSession({ token, user });
+    set({
+      hydrated: true,
+      status: 'authenticated',
+      token,
+      user,
+    });
   },
 
   logout: async () => {
-    if (Platform.OS !== 'web') {
-      await SecureStore.deleteItemAsync(JWT_KEY);
-    } else {
-      localStorage.removeItem(JWT_KEY);
-    }
-    set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    await sessionStorage.clearSession();
+    set({
+      hydrated: true,
+      status: 'unauthenticated',
+      token: null,
+      user: null,
+    });
   },
-
-  restoreSession: (token: string, userData: UserProfile) => {
-    set({ user: userData, token, isAuthenticated: true, isLoading: false });
-  },
-
-  setLoading: (status: boolean) => {
-    set({ isLoading: status });
-  }
 }));
 
-// Quick helper to read token synchronously during API interceptors
 export const getAuthToken = async () => {
-    if (Platform.OS !== 'web') {
-        return await SecureStore.getItemAsync(JWT_KEY);
-    }
-    return localStorage.getItem(JWT_KEY);
+  const storeToken = useAuthStore.getState().token;
+  if (storeToken) {
+    return storeToken;
+  }
+
+  const session = await sessionStorage.getSession();
+  return session?.token || null;
 };

@@ -1,95 +1,83 @@
 import { io, Socket } from 'socket.io-client';
-import { getAuthToken } from '../store/useAuthStore';
 
-// Retrieve socket URL from environment variable
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || 'http://localhost:5000';
+import { appConfig } from '../constants/config';
+import { getAuthToken } from '../store/useAuthStore';
 
 class SocketService {
   private socket: Socket | null = null;
-  private isConnecting: boolean = false;
+  private isConnecting = false;
 
-  /**
-   * Initialize and connect the socket using the JWT auth token
-   */
   async connect() {
-    if (this.socket?.connected || this.isConnecting) return;
+    if (this.socket?.connected || this.isConnecting) {
+      return this.socket;
+    }
 
     this.isConnecting = true;
-    try {
-      const token = await getAuthToken();
 
-      this.socket = io(SOCKET_URL, {
-        auth: { token },
-        transports: ['websocket'], // Prefer WebSocket over polling for React Native
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-      });
+    const token = await getAuthToken();
+    this.socket = io(`${appConfig.socketUrl}/driver-location`, {
+      auth: token ? { token } : undefined,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1500,
+    });
 
-      this.socket.on('connect', () => {
-        console.log('Socket connected:', this.socket?.id);
-        this.isConnecting = false;
-      });
-
-      this.socket.on('connect_error', (err: Error) => {
-        console.error('Socket connection error:', err.message);
-        this.isConnecting = false;
-      });
-
-      this.socket.on('disconnect', (reason: string) => {
-        console.log('Socket disconnected:', reason);
-        this.isConnecting = false;
-      });
-    } catch (error) {
-      console.error('Failed to initialize socket:', error);
+    this.socket.on('connect', () => {
       this.isConnecting = false;
-    }
-  }
+    });
 
-  /**
-   * Disconnect the socket
-   */
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-  }
+    this.socket.on('disconnect', () => {
+      this.isConnecting = false;
+    });
 
-  /**
-   * Get the active socket instance
-   */
-  getSocket(): Socket | null {
+    this.socket.on('connect_error', () => {
+      this.isConnecting = false;
+    });
+
     return this.socket;
   }
 
-  /**
-   * Emit an event
-   */
-  emit(event: string, data?: any) {
-    if (this.socket?.connected) {
-      this.socket.emit(event, data);
-    } else {
-      console.warn(`Cannot emit '${event}'. Socket is not connected.`);
-    }
+  disconnect() {
+    this.socket?.disconnect();
+    this.socket = null;
+    this.isConnecting = false;
   }
 
-  /**
-   * Listen for an event
-   */
-  on(event: string, callback: (...args: any[]) => void) {
-    this.socket?.on(event, callback);
+  getSocket() {
+    return this.socket;
   }
 
-  /**
-   * Remove listener for an event
-   */
-  off(event: string, callback?: (...args: any[]) => void) {
+  registerDriver(driverId: string) {
+    this.socket?.emit('register-driver', { driverId });
+  }
+
+  trackDriver(driverId: string) {
+    this.socket?.emit('track-driver', { driverId });
+  }
+
+  updateLocation(driverId: string, longitude: number, latitude: number) {
+    this.socket?.emit('update-location', { driverId, longitude, latitude });
+  }
+
+  onLocationUpdated(
+    callback: (payload: {
+      driverId: string;
+      longitude: number;
+      latitude: number;
+      timestamp: number;
+    }) => void
+  ) {
+    this.socket?.on('location-updated', callback);
+  }
+
+  offLocationUpdated(callback?: (...args: any[]) => void) {
     if (callback) {
-      this.socket?.off(event, callback);
-    } else {
-      this.socket?.off(event);
+      this.socket?.off('location-updated', callback);
+      return;
     }
+
+    this.socket?.off('location-updated');
   }
 }
 

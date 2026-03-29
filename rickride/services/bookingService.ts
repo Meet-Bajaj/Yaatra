@@ -1,47 +1,28 @@
 import { apiClient } from './apiClient';
+import { ApiResponse, Booking } from './types';
 
-export interface BookRidePayload {
-  pickupLat: number;
-  pickupLng: number;
-  dropLat: number;
-  dropLng: number;
-  fare: number;
+export interface CreateBookingPayload {
+  riderId?: string;
+  tripId?: string;
+  autoDriverId?: string;
+  seats?: number;
+  fare?: number;
+  paymentMethod: 'RAZORPAY' | 'CASH' | 'WALLET';
 }
 
 export const bookingService = {
-  /**
-   * Create a booking specifically for a CAR (e.g. carpool).
-   * Path: POST /bookings/car
-   */
-  bookCarTrip: async (data: BookRidePayload) => {
-    const response = await apiClient.post('/bookings/car', data);
-    return response.data;
+  async createBooking(data: CreateBookingPayload) {
+    const response = await apiClient.post<ApiResponse<Booking>>('/booking', data);
+    return response.data.data;
   },
 
-  /**
-   * Create a booking specifically for an Auto Rickshaw.
-   * Path: POST /bookings/auto
-   */
-  bookAuto: async (data: BookRidePayload) => {
-    const response = await apiClient.post('/bookings/auto', data);
-    return response.data;
+  async getBooking(id: string) {
+    const response = await apiClient.get<ApiResponse<Booking>>(`/booking/${id}`);
+    return response.data.data;
   },
 
-  /**
-   * Retrieve passenger's booking history.
-   * Path: GET /bookings/me
-   */
-  getMyBookings: async () => {
-    const response = await apiClient.get('/bookings/me');
-    return response.data;
-  },
-
-  /**
-   * Cancel an active booking sequence before trip begins.
-   * Path: DELETE /bookings/:id
-   */
-  cancelBooking: async (id: string) => {
-    const response = await apiClient.delete(`/bookings/${id}`);
-    return response.data;
+  async cancelBooking(id: string) {
+    const response = await apiClient.post<ApiResponse<Booking>>(`/booking/${id}/cancel`);
+    return response.data.data;
   },
 };

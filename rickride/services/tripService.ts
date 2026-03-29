@@ -1,70 +1,42 @@
 import { apiClient } from './apiClient';
-
-export interface TripLocation {
-  lat: number;
-  lng: number;
-  address?: string;
-}
+import { ApiResponse, Trip } from './types';
 
 export interface CreateTripPayload {
-  startLocation: TripLocation;
-  endLocation: TripLocation;
-  vehicleType: 'auto' | 'car';
-  fareEstimation: number;
+  driverId?: string;
+  origin: [number, number];
+  destination: [number, number];
+  distance: number;
+  departureTime: string;
+  totalSeats: number;
+  pricePerSeat: number;
+  notes?: string;
 }
 
 export const tripService = {
-  /**
-   * Passenger creates a new trip request.
-   * Path: POST /trips
-   */
-  createTrip: async (data: CreateTripPayload) => {
-    const response = await apiClient.post('/trips', data);
+  async createTrip(data: CreateTripPayload) {
+    const response = await apiClient.post<ApiResponse<Trip>>('/trip', data);
+    return response.data.data;
+  },
+
+  async getTrips(params?: {
+    status?: Trip['status'];
+    driverId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const response = await apiClient.get<ApiResponse<Trip[]>>('/trip', {
+      params,
+    });
     return response.data;
   },
 
-  /**
-   * Driver marks the trip as active/started.
-   * Path: PATCH /trips/:id/start
-   */
-  driverStartTrip: async (id: string) => {
-    const response = await apiClient.patch(`/trips/${id}/start`);
-    return response.data;
+  async getTripById(id: string) {
+    const response = await apiClient.get<ApiResponse<Trip>>(`/trip/${id}`);
+    return response.data.data;
   },
 
-  /**
-   * Driver marks the trip as completed.
-   * Path: PATCH /trips/:id/complete
-   */
-  driverCompleteTrip: async (id: string, finalFare: number) => {
-    const response = await apiClient.patch(`/trips/${id}/complete`, { finalFare });
-    return response.data;
-  },
-
-  /**
-   * Passenger or Driver cancels the trip.
-   * Path: DELETE /trips/:id
-   */
-  cancelTrip: async (id: string, reason?: string) => {
-    const response = await apiClient.delete(`/trips/${id}`, { data: { reason } });
-    return response.data;
-  },
-
-  /**
-   * Get real-time details of an active or past trip.
-   * Path: GET /trips/:id
-   */
-  getTripById: async (id: string) => {
-    const response = await apiClient.get(`/trips/${id}`);
-    return response.data;
-  },
-
-  /**
-   * Specific logic to search for active Car pool trips heading the same way.
-   * Path: GET /trips/search
-   */
-  searchCarTrips: async (params: { startLat: string; startLng: string; endLat: string; endLng: string }) => {
-    const response = await apiClient.get('/trips/search', { params });
-    return response.data;
+  async updateTripStatus(id: string, status: Trip['status']) {
+    const response = await apiClient.put<ApiResponse<Trip>>(`/trip/${id}/status`, { status });
+    return response.data.data;
   },
 };

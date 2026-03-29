@@ -12,13 +12,13 @@ interface ColorSelectorProps {
 export function ColorSelector({ label, selectedColor, onSelect }: ColorSelectorProps) {
   return (
     <View className="mb-4">
-      <Text className="text-sm font-semibold text-gray-700 mb-2">{label}</Text>
+      <Text className="mb-2 text-sm font-semibold text-gray-700">{label}</Text>
       <View className="flex-row">
         {COLORS.map((color) => (
           <TouchableOpacity
             key={color}
             onPress={() => onSelect(color)}
-            className={`w-10 h-10 rounded-full mr-3 border-2 ${
+            className={`mr-3 h-10 w-10 rounded-full border-2 ${
               selectedColor === color ? 'border-primary' : 'border-gray-200'
             }`}
             style={{ backgroundColor: color }}

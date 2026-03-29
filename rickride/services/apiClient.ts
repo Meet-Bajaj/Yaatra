@@ -1,66 +1,42 @@
 import axios from 'axios';
+import Toast from 'react-native-toast-message';
 
-import { getAuthToken } from '../store/useAuthStore';
+import { appConfig } from '../constants/config';
+import { useAuthStore, getAuthToken } from '../store/useAuthStore';
+import { getErrorMessage } from '../utils/errorMessages';
 
-// Ensure the API url is pulled from the environment variables or falls back
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-
-/**
- * Global Axios instance specifically configured for the RikRide Backend API.
- */
 export const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: appConfig.apiBaseUrl,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to append JWT Token
-apiClient.interceptors.request.use(
-  async (config) => {
-    const token = await getAuthToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+apiClient.interceptors.request.use(async (config) => {
+  const token = await getAuthToken();
 
-import Toast from 'react-native-toast-message';
-import { useAuthStore } from '../store/useAuthStore';
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
-// Example response interceptor for global error handling:
+  return config;
+});
+
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    console.error('API Error:', error?.response?.data || error.message);
-    
-    let errorMessage = 'Something went wrong. Please try again later.';
-    let isUnauthorized = false;
+  async (error) => {
+    const message = getErrorMessage(error);
 
-    if (error.response) {
-      if (error.response.status === 401) {
-        errorMessage = 'Session expired. Please log in again.';
-        isUnauthorized = true;
-      } else if (error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      }
-    } else if (error.message === 'Network Error') {
-      errorMessage = 'Network error. Please check your internet connection.';
+    if (error.response?.status === 401) {
+      await useAuthStore.getState().logout();
     }
 
     Toast.show({
       type: 'error',
-      text1: 'Error',
-      text2: errorMessage,
+      text1: 'Request failed',
+      text2: message,
     });
-
-    if (isUnauthorized) {
-      // Trigger logout if we are unauthorized and not already on the login path
-      const { logout } = useAuthStore.getState();
-      logout();
-    }
 
     return Promise.reject(error);
   }

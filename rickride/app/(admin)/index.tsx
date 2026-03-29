@@ -1,49 +1,53 @@
-import React from 'react';
-import { View, ScrollView, Text } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { DashboardWidget } from '../../components/admin/DashboardWidget';
-import { DataTable } from '../../components/admin/DataTable';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const MOCK_TABLE_DATA = [
-  { id: 'TRX-101', user: 'John Doe', driver: 'Ramesh K.', amount: '₹120', status: 'Completed', date: 'Oct 24, 2023' },
-  { id: 'TRX-102', user: 'Alice Smith', driver: 'Suresh L.', amount: '₹85', status: 'Completed', date: 'Oct 24, 2023' },
-  { id: 'TRX-103', user: 'Bob Johnson', driver: 'Amit P.', amount: '₹200', status: 'Cancelled', date: 'Oct 25, 2023' },
-  { id: 'TRX-104', user: 'Emma Davis', driver: 'Rahul S.', amount: '₹150', status: 'In Progress', date: 'Oct 25, 2023' },
-];
-
-const COLUMNS = [
-  { key: 'id', title: 'Ride ID' },
-  { key: 'user', title: 'Passenger' },
-  { key: 'driver', title: 'Driver' },
-  { key: 'amount', title: 'Fare' },
-  { key: 'status', title: 'Status' },
-];
+import { LoadingView } from '../../components/LoadingView';
+import { useAsyncData } from '../../hooks/useAsyncData';
+import { adminService } from '../../services/adminService';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function AdminDashboard() {
-  return (
-    <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Top Widgets */}
-   
-      <Animated.View 
-        entering={FadeInDown.duration(400).delay(100)} 
-        style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 32, marginHorizontal: -8 }}
-      >
-        <DashboardWidget index={0} title="Total Users" value="1,245" icon="people" trend="12%" trendUp={true} />
-        <DashboardWidget index={1} title="Active Drivers" value="340" icon="car" trend="5%" trendUp={true} />
-        <DashboardWidget index={2} title="Completed Rides" value="8,920" icon="map" trend="2%" trendUp={false} />
-        <DashboardWidget index={3} title="Revenue" value="₹4.5L" icon="wallet" trend="18%" trendUp={true} />
-      </Animated.View>
+  const statsState = useAsyncData(() => adminService.getStats(), []);
+  const logout = useAuthStore((state) => state.logout);
 
-      {/* Recent Rides Table */}
-      <Animated.View entering={FadeInUp.duration(500).delay(300)} className="mb-4">
-        <View className="flex-row justify-between items-center mb-4 px-2">
-          <Text className="text-xl font-bold text-surfaceDark">Recent Rides</Text>
-          <Text className="text-primary font-semibold hover:opacity-80 active:opacity-60 cursor-pointer transition-opacity">
-            View All
-          </Text>
+  if (statsState.loading && !statsState.data) {
+    return <LoadingView message="Loading admin overview..." />;
+  }
+
+  const cards = [
+    { label: 'Total users', value: statsState.data?.totalUsers || 0 },
+    { label: 'Total drivers', value: statsState.data?.totalDrivers || 0 },
+    { label: 'Trips', value: statsState.data?.totalTrips || 0 },
+    { label: 'Bookings', value: statsState.data?.totalBookings || 0 },
+    { label: 'Payments', value: statsState.data?.totalPayments || 0 },
+  ];
+
+  return (
+    <SafeAreaView className="bg-backgroundLight flex-1">
+      <ScrollView className="px-4 pt-6">
+        <View className="flex-row items-start justify-between">
+          <View>
+            <Text className="text-sm uppercase tracking-[2px] text-primary">Admin</Text>
+            <Text className="mt-2 text-3xl font-bold text-surfaceDark">Platform overview</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => logout().catch(() => undefined)}
+            className="rounded-full bg-white px-4 py-2 shadow-sm">
+            <Text className="font-semibold text-surfaceDark">Logout</Text>
+          </TouchableOpacity>
         </View>
-        <DataTable columns={COLUMNS} data={MOCK_TABLE_DATA} />
-      </Animated.View>
-    </ScrollView>
+
+        <View className="mt-6 flex-row flex-wrap gap-4">
+          {cards.map((card) => (
+            <View
+              key={card.label}
+              className="min-w-[160px] flex-1 rounded-3xl bg-white p-5 shadow-sm">
+              <Text className="text-sm text-gray-500">{card.label}</Text>
+              <Text className="mt-3 text-3xl font-bold text-surfaceDark">{card.value}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

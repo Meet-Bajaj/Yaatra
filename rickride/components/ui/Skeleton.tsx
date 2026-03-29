@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, View, StyleSheet, ViewStyle } from 'react-native';
+import { Animated, type ViewStyle } from 'react-native';
 
 interface SkeletonProps {
   width?: number | string;
@@ -45,7 +45,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           width: width as any,
           height: height as any,
           borderRadius,
-          backgroundColor: '#E5E7EB', // Tailwind gray-200
+          backgroundColor: '#E5E7EB',
           opacity,
         },
         style,

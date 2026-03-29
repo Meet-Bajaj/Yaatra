@@ -1,14 +1,12 @@
 import React from 'react';
-import { View, Image, Text } from 'react-native';
-import { theme } from '../constants/theme';
+import { Text, View } from 'react-native';
 
 export function IllustrationHeader() {
   return (
-    <View className="flex-[0.5] justify-center items-center bg-backgroundLight pt-10">
-      <View className="w-48 h-48 bg-primary rounded-full items-center justify-center mb-4 opacity-20 absolute" />
-      <View className="w-32 h-32 bg-primary rounded-full items-center justify-center">
-        {/* Placeholder for an actual Rickshaw illustration */}
-        <Text className="text-white font-bold text-lg">🛺 RikRide</Text>
+    <View className="bg-backgroundLight flex-[0.5] items-center justify-center pt-10">
+      <View className="absolute mb-4 h-48 w-48 rounded-full bg-primary opacity-20" />
+      <View className="h-32 w-32 items-center justify-center rounded-full bg-primary">
+        <Text className="text-lg font-bold text-white">RickRide</Text>
       </View>
     </View>
   );

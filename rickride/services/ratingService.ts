@@ -1,38 +1,36 @@
 import { apiClient } from './apiClient';
+import { ApiResponse } from './types';
 
 export interface CreateRatingPayload {
-  tripId: string;
-  targetUserId: string;
-  ratingValue: number;
-  review?: string;
-  role: 'passenger' | 'driver'; // who is giving the rating
+  driverId: string;
+  rating: number;
+  comment?: string;
+  tripId?: string;
+  bookingId?: string;
+}
+
+export interface DriverRating {
+  _id: string;
+  user: {
+    _id: string;
+    name?: string;
+    avatarUrl?: string;
+  };
+  rating: number;
+  comment?: string;
+  createdAt?: string;
 }
 
 export const ratingService = {
-  /**
-   * Submit a rating (either driver to passenger, or passenger to driver).
-   * Path: POST /ratings
-   */
-  createRating: async (data: CreateRatingPayload) => {
-    const response = await apiClient.post('/ratings', data);
-    return response.data;
+  async createRating(data: CreateRatingPayload) {
+    const response = await apiClient.post<ApiResponse<DriverRating>>('/rating', data);
+    return response.data.data;
   },
 
-  /**
-   * Get all ratings received by a specific passenger/user.
-   * Path: GET /ratings/user/:id
-   */
-  getUserRatings: async (userId: string) => {
-    const response = await apiClient.get(`/ratings/user/${userId}`);
-    return response.data;
-  },
-
-  /**
-   * Get all ratings received by a specific driver.
-   * Path: GET /ratings/driver/:id
-   */
-  getDriverRatings: async (driverId: string) => {
-    const response = await apiClient.get(`/ratings/driver/${driverId}`);
+  async getDriverRatings(driverId: string, page = 1, limit = 10) {
+    const response = await apiClient.get<ApiResponse<DriverRating[]>>(`/rating/${driverId}`, {
+      params: { page, limit },
+    });
     return response.data;
   },
 };

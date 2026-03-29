@@ -35,7 +35,6 @@ export default function PassengerLayout() {
       />
       <Tabs.Screen
         name="confirmation"
-      
         options={{
           href: null,
           title: 'Confirmation',

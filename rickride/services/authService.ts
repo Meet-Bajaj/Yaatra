@@ -1,30 +1,42 @@
 import { apiClient } from './apiClient';
+import { ApiResponse, User, UserRole } from './types';
 
-export interface RequestOtpPayload {
+export interface RegisterPayload {
+  phone: string;
+  name?: string;
+  email?: string;
+  role?: UserRole;
+}
+
+export interface LoginPayload {
   phone: string;
 }
 
 export interface VerifyOtpPayload {
   phone: string;
-  otp: string;
+  code: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: User;
 }
 
 export const authService = {
-  /**
-   * Request an OTP to be sent to a phone number.
-   * Path: POST /auth/request-otp
-   */
-  requestOtp: async (data: RequestOtpPayload) => {
-    const response = await apiClient.post('/auth/request-otp', data);
-    return response.data;
+  async register(data: RegisterPayload) {
+    const response = await apiClient.post<ApiResponse<AuthSession>>('/auth/register', data);
+    return response.data.data;
   },
 
-  /**
-   * Verify an OTP to login/register yielding secure tokens.
-   * Path: POST /auth/verify-otp
-   */
-  verifyOtp: async (data: VerifyOtpPayload) => {
-    const response = await apiClient.post('/auth/verify-otp', data);
-    return response.data;
+  async login(data: LoginPayload) {
+    const response = await apiClient.post<
+      ApiResponse<{ phone: string; delivery: string; mockCode?: string }>
+    >('/auth/login', data);
+    return response.data.data;
+  },
+
+  async verifyOtp(data: VerifyOtpPayload) {
+    const response = await apiClient.post<ApiResponse<AuthSession>>('/auth/verify-otp', data);
+    return response.data.data;
   },
 };

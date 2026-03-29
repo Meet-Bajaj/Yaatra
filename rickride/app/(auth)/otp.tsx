@@ -1,73 +1,106 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput } from 'react-native';
-import { useRouter, Href, useLocalSearchParams } from 'expo-router';
-import { authService } from '../../services/authService';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useMemo, useRef, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
+
 import { AuthCard } from '../../components/AuthCard';
 import { Button } from '../../components/Button';
 import { IllustrationHeader } from '../../components/IllustrationHeader';
+import { roleRoutes } from '../../constants/config';
+import { authService } from '../../services/authService';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function OTPScreen() {
   const router = useRouter();
+  const { phone, delivery, mockCode } = useLocalSearchParams<{
+    phone: string;
+    delivery?: string;
+    mockCode?: string;
+  }>();
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const inputs = useRef<Array<TextInput | null>>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const inputs = useRef<(TextInput | null)[]>([]);
+
+  const otpValue = useMemo(() => otp.join(''), [otp]);
 
   const handleChange = (text: string, index: number) => {
-    const newOtp = [...otp];
-    newOtp[index] = text;
-    setOtp(newOtp);
+    const sanitized = text.replace(/\D/g, '').slice(-1);
+    const nextOtp = [...otp];
+    nextOtp[index] = sanitized;
+    setOtp(nextOtp);
 
-    // Auto focus next
-    if (text && index < 5) {
+    if (sanitized && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
 
-  const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [isLoading, setIsLoading] = useState(false);
+  const verifyOtp = async () => {
+    if (!phone) {
+      return;
+    }
 
-  const verifyOTP = async () => {
+    setSubmitting(true);
+
     try {
-      setIsLoading(true);
-      const code = otp.join('');
-      // Standardize payload for your backend
-      const response = await authService.verifyOtp({ phone, otp: code });
-      
-      // Store token and user data globally directly matching your DB output
-      // Assuming response wraps this in { token, user }
-      const { token, user } = response;
-      await useAuthStore.getState().login(user, token);
+      const session = await authService.verifyOtp({
+        phone,
+        code: otpValue,
+      });
 
-      // We explicitly route here or rely on _layout Auth Guard
-      if (user.role === 'driver') {
-        router.replace('/(driver)' as Href);
-      } else if (user.role === 'admin') {
-        router.replace('/(admin)' as Href);
-      } else {
-        router.replace('/(passenger)' as Href);
-      }
-    } catch (error) {
-      console.error('OTP Verification Error', error);
-      // You can add an Alert or local error state warning
+      await useAuthStore.getState().setSession(session.token, session.user);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Signed in',
+        text2: `Welcome ${session.user.name || session.user.phone}`,
+      });
+
+      router.replace(roleRoutes[session.user.role]);
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
 
-  return (
-    <View className="flex-1 bg-backgroundLight relative">
-      <IllustrationHeader />
-      
-      <AuthCard>
-        <Text className="text-3xl font-bold text-surfaceDark mb-2">Verify OTP</Text>
-        <Text className="text-gray-500 mb-6 text-base">We have sent a 6-digit code to your phone number.</Text>
+  const resendOtp = async () => {
+    if (!phone) {
+      return;
+    }
 
-        <View className="flex-row justify-between mb-8">
+    const otpDetails = await authService.login({ phone });
+    Toast.show({
+      type: 'success',
+      text1: 'OTP sent again',
+      text2: otpDetails.mockCode
+        ? `Development OTP: ${otpDetails.mockCode}`
+        : 'Check your phone for the new code.',
+    });
+  };
+
+  return (
+    <View className="bg-backgroundLight relative flex-1">
+      <IllustrationHeader />
+
+      <AuthCard>
+        <Text className="mb-2 text-3xl font-bold text-surfaceDark">Verify OTP</Text>
+        <Text className="mb-2 text-base text-gray-500">
+          Enter the 6-digit code sent to {phone || 'your phone'}.
+        </Text>
+        {delivery ? <Text className="mb-6 text-sm text-gray-400">Delivery: {delivery}</Text> : null}
+        {mockCode ? (
+          <Text className="mb-4 rounded-2xl bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">
+            Development OTP: {mockCode}
+          </Text>
+        ) : null}
+
+        <View className="mb-8 flex-row justify-between">
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => { inputs.current[index] = ref; }}
-              className="w-12 h-14 border border-gray-300 rounded-xl text-center text-xl font-bold bg-surfaceLight"
+              ref={(ref) => {
+                inputs.current[index] = ref;
+              }}
+              className="h-14 w-12 rounded-xl border border-gray-300 bg-surfaceLight text-center text-xl font-bold"
               maxLength={1}
               keyboardType="number-pad"
               value={digit}
@@ -76,17 +109,15 @@ export default function OTPScreen() {
           ))}
         </View>
 
-        <Button title="Verify & Continue" onPress={verifyOTP} disabled={otp.join('').length < 6} />
+        <Button
+          title={submitting ? 'Verifying...' : 'Verify & Continue'}
+          onPress={verifyOtp}
+          disabled={submitting || otpValue.length < 6}
+        />
 
-        <View className="mt-8">
-          {/* Quick debug links to test navigation */}
-          <Text className="text-center font-bold mb-4">Debug Nav:</Text>
-          <View className="flex-row justify-between">
-            <Button className="w-1/3 bg-gray-500 p-2" title="Passenger" onPress={() => router.replace('/(passenger)' as Href)} />
-            <Button className="w-1/3 bg-gray-500 p-2" title="Driver" onPress={() => router.replace('/(driver)' as Href)} />
-            <Button className="w-1/3 bg-gray-500 p-2" title="Admin" onPress={() => router.replace('/(admin)' as Href)} />
-          </View>
-        </View>
+        <TouchableOpacity onPress={resendOtp} className="mt-6">
+          <Text className="text-center font-semibold text-primary">Resend OTP</Text>
+        </TouchableOpacity>
       </AuthCard>
     </View>
   );

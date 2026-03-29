@@ -1,64 +1,57 @@
 import { apiClient } from './apiClient';
+import { ApiResponse, DriverProfile } from './types';
 
-export interface CreateDriverPayload {
+export interface DriverProfilePayload {
+  userId?: string;
   licenseNumber: string;
-  aadharNumber: string;
-  // ...other onboarding details
+  operatingZone?: string;
+  vehicleId?: string | null;
 }
 
-export interface UpdateDriverStatusPayload {
-  isOnline: boolean;
-  currentLocation?: {
-    lat: number;
-    lng: number;
-  };
+export interface DriverStatusPayload {
+  driverId?: string;
+  status: 'offline' | 'online' | 'onTrip';
+}
+
+export interface DriverLocationPayload {
+  driverId?: string;
+  longitude: number;
+  latitude: number;
+  status?: 'offline' | 'online' | 'onTrip';
 }
 
 export const driverService = {
-  /**
-   * Create a driver profile attached to the user.
-   * Path: POST /drivers
-   */
-  createDriverProfile: async (data: CreateDriverPayload) => {
-    const response = await apiClient.post('/drivers', data);
-    return response.data;
+  async upsertProfile(data: DriverProfilePayload) {
+    const response = await apiClient.post<ApiResponse<DriverProfile>>('/driver/profile', data);
+    return response.data.data;
   },
 
-  /**
-   * Retrieve the authenticated driver's profile.
-   * Path: GET /drivers/me
-   */
-  getMyDriverProfile: async () => {
-    const response = await apiClient.get('/drivers/me');
-    return response.data;
-  },
-
-  /**
-   * Toggle online/offline tracking status.
-   * Path: PATCH /drivers/me/status
-   */
-  updateDriverStatus: async (data: UpdateDriverStatusPayload) => {
-    const response = await apiClient.patch('/drivers/me/status', data);
-    return response.data;
-  },
-
-  /**
-   * Fetch active drivers near a specific location.
-   * Path: GET /drivers/nearby
-   */
-  getNearbyDrivers: async (lat: number, lng: number, radiusInKm: number = 5) => {
-    const response = await apiClient.get('/drivers/nearby', {
-      params: { lat, lng, radius: radiusInKm },
+  async getMyDriverProfile(userId?: string) {
+    const response = await apiClient.get<ApiResponse<DriverProfile>>('/driver/profile', {
+      params: userId ? { userId } : undefined,
     });
-    return response.data;
+    return response.data.data;
   },
 
-  /**
-   * Get public details of a specific driver.
-   * Path: GET /drivers/:id
-   */
-  getDriverById: async (id: string) => {
-    const response = await apiClient.get(`/drivers/${id}`);
-    return response.data;
+  async updateDriverStatus(data: DriverStatusPayload) {
+    const response = await apiClient.put<ApiResponse<DriverProfile>>('/driver/status', data);
+    return response.data.data;
+  },
+
+  async updateDriverLocation(data: DriverLocationPayload) {
+    const response = await apiClient.put<ApiResponse<DriverProfile>>('/driver/location', data);
+    return response.data.data;
+  },
+
+  async getNearbyDrivers(longitude: number, latitude: number, radiusKm = 5, limit = 10) {
+    const response = await apiClient.get<ApiResponse<DriverProfile[]>>('/driver/nearby', {
+      params: {
+        longitude,
+        latitude,
+        radiusKm,
+        limit,
+      },
+    });
+    return response.data.data;
   },
 };

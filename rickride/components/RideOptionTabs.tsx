@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../constants/theme';
 
 const OPTIONS = [
   { id: 'auto', title: 'Auto', icon: 'car-sport' },
@@ -18,24 +17,19 @@ export function RideOptionTabs() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
         {OPTIONS.map((opt) => {
           const isSelected = selected === opt.id;
+
           return (
             <TouchableOpacity
               key={opt.id}
-              className={`mr-3 py-2.5 px-5 rounded-full flex-row items-center ${
-                isSelected ? 'bg-primary shadow-md' : 'bg-surfaceLight border border-gray-200'
+              className={`mr-3 flex-row items-center rounded-full px-5 py-2.5 ${
+                isSelected ? 'bg-primary shadow-md' : 'border border-gray-200 bg-surfaceLight'
               }`}
-              onPress={() => setSelected(opt.id)}
-            >
-              <Ionicons 
-                name={opt.icon as any} 
-                size={18} 
-                color={isSelected ? 'white' : 'black'} 
-              />
-              <Text 
-                className={`ml-2 font-bold text-[15px] ${
+              onPress={() => setSelected(opt.id)}>
+              <Ionicons name={opt.icon as any} size={18} color={isSelected ? 'white' : 'black'} />
+              <Text
+                className={`ml-2 text-[15px] font-bold ${
                   isSelected ? 'text-white' : 'text-surfaceDark'
-                }`}
-              >
+                }`}>
                 {opt.title}
               </Text>
             </TouchableOpacity>

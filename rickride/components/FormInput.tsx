@@ -8,9 +8,9 @@ interface FormInputProps extends TextInputProps {
 export function FormInput({ label, ...props }: FormInputProps) {
   return (
     <View className="mb-4">
-      <Text className="text-sm font-semibold text-gray-700 mb-1">{label}</Text>
-      <TextInput 
-        className="border border-gray-200 rounded-2xl px-4 py-4 bg-gray-50 text-[16px] text-surfaceDark font-medium"
+      <Text className="mb-1 text-sm font-semibold text-gray-700">{label}</Text>
+      <TextInput
+        className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-[16px] font-medium text-surfaceDark"
         placeholderTextColor="#9ca3af"
         {...props}
       />

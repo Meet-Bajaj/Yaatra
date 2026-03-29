@@ -1,55 +1,148 @@
-import React, { useState } from 'react';
-import { View, Text } from 'react-native';
-import { useRouter, Href } from 'expo-router';
-import { authService } from '../../services/authService';
+import { useState } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import Toast from 'react-native-toast-message';
+
 import { AuthCard } from '../../components/AuthCard';
-import { PhoneInput } from '../../components/PhoneInput';
 import { Button } from '../../components/Button';
+import { FormInput } from '../../components/FormInput';
 import { IllustrationHeader } from '../../components/IllustrationHeader';
+import { PhoneInput } from '../../components/PhoneInput';
+import { roleLabels } from '../../constants/config';
+import { authService } from '../../services/authService';
+import { UserRole } from '../../services/types';
+import { normalizePhone } from '../../utils/phone';
+
+const authModes = ['login', 'register'] as const;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [mode, setMode] = useState<(typeof authModes)[number]>('login');
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<UserRole>('rider');
+  const [submitting, setSubmitting] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const handleContinue = async () => {
+    const normalizedPhone = normalizePhone(phone);
 
-  const handleSendOTP = async () => {
-    if (phone.length >= 10) {
-      try {
-        setIsLoading(true);
-        // Call backend to send SMS
-        await authService.requestOtp({ phone });
-        
-        // Navigate and pass phone parameter to OTP screen
-        router.push({ pathname: '/(auth)/otp', params: { phone } } as Href);
-      } catch (error) {
-        console.error('Failed to send OTP', error);
-        // Fallback or error indication here
-      } finally {
-        setIsLoading(false);
+    setSubmitting(true);
+
+    try {
+      if (mode === 'register') {
+        await authService.register({
+          phone: normalizedPhone,
+          name: name.trim() || undefined,
+          email: email.trim() || undefined,
+          role,
+        });
       }
+
+      const otpDetails = await authService.login({ phone: normalizedPhone });
+
+      Toast.show({
+        type: 'success',
+        text1: mode === 'register' ? 'Account created' : 'OTP sent',
+        text2: otpDetails.mockCode
+          ? `Development OTP: ${otpDetails.mockCode}`
+          : 'Check your phone for the verification code.',
+      });
+
+      router.push({
+        pathname: '/(auth)/otp',
+        params: {
+          phone: normalizedPhone,
+          delivery: otpDetails.delivery,
+          mockCode: otpDetails.mockCode || '',
+        },
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <View className="flex-1 bg-backgroundLight relative">
+    <View className="bg-backgroundLight relative flex-1">
       <IllustrationHeader />
-      
+
       <AuthCard>
-        <Text className="text-3xl font-bold text-surfaceDark mb-2">Welcome to RikRide</Text>
-        <Text className="text-gray-500 mb-6 text-base">Enter your phone number to get started</Text>
+        <View className="mb-6 flex-row rounded-2xl bg-white/70 p-1">
+          {authModes.map((item) => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => setMode(item)}
+              className={`flex-1 rounded-2xl px-4 py-3 ${mode === item ? 'bg-primary' : 'bg-transparent'}`}>
+              <Text
+                className={`text-center font-semibold ${mode === item ? 'text-white' : 'text-surfaceDark'}`}>
+                {item === 'login' ? 'Login' : 'Sign up'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text className="mb-2 text-3xl font-bold text-surfaceDark">Welcome to RickRide</Text>
+        <Text className="mb-6 text-base text-gray-500">
+          {mode === 'login'
+            ? 'Enter your phone number to receive a one-time password.'
+            : 'Create your account first, then we will verify your phone number.'}
+        </Text>
+
+        {mode === 'register' ? (
+          <>
+            <FormInput
+              label="Full name"
+              placeholder="Your name"
+              value={name}
+              onChangeText={setName}
+            />
+            <FormInput
+              label="Email (optional)"
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Text className="mb-2 text-sm font-semibold text-gray-700">Account type</Text>
+            <View className="mb-4 flex-row gap-2">
+              {(['rider', 'driver', 'admin'] as UserRole[]).map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  onPress={() => setRole(item)}
+                  className={`flex-1 rounded-2xl border px-3 py-3 ${
+                    role === item ? 'border-primary bg-primary/10' : 'border-gray-200 bg-white'
+                  }`}>
+                  <Text className="text-center font-medium text-surfaceDark">
+                    {roleLabels[item]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <PhoneInput value={phone} onChangeText={setPhone} />
 
-        <View className="mt-6 mb-8">
-          <Text className="text-center text-gray-500 text-sm">
+        <View className="mb-8 mt-6">
+          <Text className="text-center text-sm text-gray-500">
             By continuing, you agree to our{' '}
             <Text className="font-semibold text-primary">Terms of Service</Text> and{' '}
             <Text className="font-semibold text-primary">Privacy Policy</Text>.
           </Text>
         </View>
 
-        <Button title="Send OTP" onPress={handleSendOTP} disabled={phone.length < 10} />
+        <Button
+          title={
+            submitting
+              ? 'Please wait...'
+              : mode === 'login'
+                ? 'Send OTP'
+                : 'Create account & send OTP'
+          }
+          onPress={handleContinue}
+          disabled={submitting || phone.replace(/\D/g, '').length < 10}
+        />
       </AuthCard>
     </View>
   );

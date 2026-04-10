@@ -49,8 +49,16 @@ const connectRedis = async () => {
 
 const isRedisReady = () => redisClient.isReady;
 
+const disconnectRedis = async () => {
+  if (redisClient.isOpen) {
+    await redisClient.quit();
+    logger.info("Redis client disconnected");
+  }
+};
+
 module.exports = {
   redisClient,
   connectRedis,
   isRedisReady,
+  disconnectRedis,
 };

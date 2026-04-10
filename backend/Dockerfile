@@ -1,26 +1,23 @@
-FROM node:20-alpine
+FROM node:20-alpine AS deps
 
-# Set working directory
 WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Set environment to production
+FROM node:20-alpine AS runtime
+
+WORKDIR /app
 ENV NODE_ENV=production
 
-# Install dependencies only (leverage Docker cache)
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy source code
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Create a directory for local uploads and ensure appropriate permissions
-RUN mkdir -p public/uploads && chown -R node:node public/uploads
+RUN mkdir -p public/uploads && chown -R node:node /app
 
-# Expose the API port
 EXPOSE 5000
 
-# Switch to non-root user for security
-USER node
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD node -e "const http=require('http');http.get('http://127.0.0.1:5000/health',res=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1));"
 
-# Start the application
+USER node
 CMD ["npm", "start"]

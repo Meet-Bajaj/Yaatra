@@ -3,6 +3,7 @@ const { body } = require("express-validator");
 
 const paymentController = require("../controllers/payment.controller");
 const { protect } = require("../middlewares/authMiddleware");
+const { webhookLimiter } = require("../middlewares/rateLimiter");
 const { validate } = require("../middlewares/validate");
 
 const router = express.Router();
@@ -109,6 +110,6 @@ router.post(
  *       200:
  *         description: Webhook received
  */
-router.post("/webhook", paymentController.razorpayWebhook);
+router.post("/webhook", webhookLimiter, paymentController.razorpayWebhook);
 
 module.exports = router;

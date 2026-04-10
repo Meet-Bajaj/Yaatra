@@ -20,16 +20,52 @@ const createTrip = asyncHandler(async (req, res) => {
   }
 
   const totalSeats = Number(req.body.totalSeats);
+  const pricePerSeat = Number(req.body.pricePerSeat);
+  const distance = Number(req.body.distance);
+  const origin = req.body.origin || [];
+  const destination = req.body.destination || [];
+
+  const [originLng, originLat] = origin;
+  const [destinationLng, destinationLat] = destination;
+
+  if (
+    !Number.isFinite(originLng) ||
+    !Number.isFinite(originLat) ||
+    !Number.isFinite(destinationLng) ||
+    !Number.isFinite(destinationLat) ||
+    originLat < -90 ||
+    originLat > 90 ||
+    destinationLat < -90 ||
+    destinationLat > 90 ||
+    originLng < -180 ||
+    originLng > 180 ||
+    destinationLng < -180 ||
+    destinationLng > 180
+  ) {
+    throw new AppError("Invalid origin/destination coordinates", 400);
+  }
+
+  if (!Number.isFinite(distance) || distance <= 0 || distance > 5000) {
+    throw new AppError("Distance must be between 0 and 5000 kilometers", 400);
+  }
+
+  if (!Number.isFinite(totalSeats) || totalSeats < 1 || totalSeats > 8) {
+    throw new AppError("Total seats must be between 1 and 8", 400);
+  }
+
+  if (!Number.isFinite(pricePerSeat) || pricePerSeat < 0) {
+    throw new AppError("Price per seat must be a valid non-negative number", 400);
+  }
 
   const trip = await Trip.create({
     driver: driverId,
-    origin: { type: "Point", coordinates: req.body.origin },
-    destination: { type: "Point", coordinates: req.body.destination },
-    distance: Number(req.body.distance),
+    origin: { type: "Point", coordinates: [originLng, originLat] },
+    destination: { type: "Point", coordinates: [destinationLng, destinationLat] },
+    distance,
     departureTime: req.body.departureTime || req.body.dipartureTime,
     totalSeats,
     availableSeats: totalSeats,
-    pricePerSeat: Number(req.body.pricePerSeat),
+    pricePerSeat,
     notes: req.body.notes,
   });
 

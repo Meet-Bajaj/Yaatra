@@ -46,6 +46,17 @@ const createPayment = asyncHandler(async (req, res) => {
 
   const gateway = req.body.gateway || booking.paymentMethod || "RAZORPAY";
   const amount = req.body.amount !== undefined ? Number(req.body.amount) : booking.fare;
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new AppError("Invalid payment amount", 400);
+  }
+
+  const existingCompletedPayment = await Payment.findOne({
+    booking: booking._id,
+    status: "completed",
+  });
+  if (existingCompletedPayment) {
+    throw new AppError("This booking is already paid", 409);
+  }
 
   const payment = await Payment.create({
     booking: booking._id,
@@ -88,6 +99,14 @@ const verifyPayment = asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.body.paymentId);
   if (!payment) {
     throw new AppError("Payment not found", 404);
+  }
+
+  if (payment.status === "completed") {
+    sendSuccess(res, {
+      message: "Payment already verified",
+      data: payment,
+    });
+    return;
   }
 
   if (payment.gateway === "RAZORPAY") {
@@ -140,6 +159,13 @@ const razorpayWebhook = asyncHandler(async (req, res) => {
 
     const payment = await Payment.findOne({ gatewayOrderId: orderId });
     if (payment) {
+      if (payment.status === "completed" && payment.gatewayTransactionId === paymentId) {
+        sendSuccess(res, {
+          message: "Webhook already processed",
+        });
+        return;
+      }
+
       payment.gatewayTransactionId = paymentId;
       payment.rawResponse = payload;
       payment.status = "completed";

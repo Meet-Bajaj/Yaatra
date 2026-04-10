@@ -67,6 +67,12 @@ router.post(
     body("distance").isFloat({ min: 0 }),
     body("departureTime").optional().isISO8601(),
     body("dipartureTime").optional().isISO8601(),
+    body().custom((value) => {
+      if (!value.departureTime && !value.dipartureTime) {
+        throw new Error("Either departureTime or dipartureTime is required");
+      }
+      return true;
+    }),
     body("totalSeats").isInt({ min: 1 }),
     body("pricePerSeat").isFloat({ min: 0 }),
     body("notes").optional().isString().trim(),

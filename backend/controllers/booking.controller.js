@@ -10,15 +10,31 @@ const createBooking = asyncHandler(async (req, res) => {
   const seats = Number(req.body.seats || 1);
 
   let trip = null;
+  let reservedTripId = null;
   if (req.body.tripId) {
-    trip = await Trip.findById(req.body.tripId);
+    trip = await Trip.findOneAndUpdate(
+      {
+        _id: req.body.tripId,
+        status: "open",
+        availableSeats: { $gte: seats },
+      },
+      {
+        $inc: { availableSeats: -seats },
+      },
+      {
+        new: true,
+      }
+    );
+
     if (!trip) {
-      throw new AppError("Trip not found", 404);
+      const existingTrip = await Trip.findById(req.body.tripId).select("_id");
+      if (!existingTrip) {
+        throw new AppError("Trip not found", 404);
+      }
+      throw new AppError("Requested seats exceed trip availability or trip is not open", 400);
     }
 
-    if (trip.availableSeats < seats) {
-      throw new AppError("Requested seats exceed trip availability", 400);
-    }
+    reservedTripId = trip._id;
   }
 
   if (!trip && req.body.autoDriverId) {
@@ -43,21 +59,25 @@ const createBooking = asyncHandler(async (req, res) => {
     throw new AppError("Fare is required for direct driver bookings", 400);
   }
 
-  const booking = await Booking.create({
-    rider: riderId,
-    trip: req.body.tripId || null,
-    autoDriver: req.body.autoDriverId || null,
-    seats,
-    fare,
-    paymentMethod: req.body.paymentMethod,
-  });
-
-  if (trip) {
-    trip.availableSeats -= seats;
-    if (trip.availableSeats === 0) {
-      trip.status = "full";
+  let booking;
+  try {
+    booking = await Booking.create({
+      rider: riderId,
+      trip: req.body.tripId || null,
+      autoDriver: req.body.autoDriverId || null,
+      seats,
+      fare,
+      paymentMethod: req.body.paymentMethod,
+    });
+  } catch (error) {
+    if (reservedTripId) {
+      await Trip.findByIdAndUpdate(reservedTripId, { $inc: { availableSeats: seats } });
     }
-    await trip.save();
+    throw error;
+  }
+
+  if (trip && trip.availableSeats === 0) {
+    await Trip.findByIdAndUpdate(trip._id, { status: "full" });
   }
 
   sendSuccess(res, {

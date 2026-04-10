@@ -38,7 +38,6 @@ const tripSchema = new mongoose.Schema(
     departureTime: {
       type: Date,
       required: true,
-      alias: "dipartureTime",
     },
     totalSeats: {
       type: Number,

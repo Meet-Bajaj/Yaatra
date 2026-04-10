@@ -22,6 +22,14 @@ const parseList = (value, fallback = []) => {
 
 const resolvedPort = parseNumber(process.env.PORT, 5000);
 
+const resolvedJwtSecret = process.env.JWT_SECRET || "change-me-in-production";
+if (
+  process.env.NODE_ENV === "production" &&
+  (!process.env.JWT_SECRET || resolvedJwtSecret === "change-me-in-production")
+) {
+  throw new Error("JWT_SECRET must be set to a strong value in production");
+}
+
 module.exports = Object.freeze({
   nodeEnv: process.env.NODE_ENV || "development",
   isProduction: process.env.NODE_ENV === "production",
@@ -36,7 +44,7 @@ module.exports = Object.freeze({
     url: process.env.REDIS_URL || process.env.REDIS_URI || "redis://127.0.0.1:6379",
   },
   jwt: {
-    secret: process.env.JWT_SECRET || "change-me-in-production",
+    secret: resolvedJwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   },
   rateLimit: {

@@ -24,7 +24,6 @@ const vehicleSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 1,
-      alias: "capicity",
     },
     rcDocUrl: String,
     insuranceDocUrl: String,

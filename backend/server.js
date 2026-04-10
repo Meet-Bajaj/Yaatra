@@ -3,9 +3,9 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const { createApp } = require("./app");
-const { connectDB } = require("./config/db");
+const { connectDB, disconnectDB } = require("./config/db");
 const env = require("./config/env");
-const { connectRedis } = require("./config/redis");
+const { connectRedis, disconnectRedis } = require("./config/redis");
 const { initializeSockets } = require("./sockets/location.socket");
 const logger = require("./utils/logger");
 
@@ -39,9 +39,13 @@ const startServer = async () => {
 const shutdown = async (signal) => {
   logger.info(`Received ${signal}, shutting down gracefully`);
 
-  server.close(() => {
+  server.close(async () => {
     logger.info("HTTP server closed");
-    process.exit(0);
+    try {
+      await Promise.allSettled([disconnectDB(), disconnectRedis()]);
+    } finally {
+      process.exit(0);
+    }
   });
 
   setTimeout(() => {

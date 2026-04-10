@@ -24,7 +24,19 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  message: {
+    success: false,
+    message: "Too many webhook requests. Please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
+  webhookLimiter,
 };

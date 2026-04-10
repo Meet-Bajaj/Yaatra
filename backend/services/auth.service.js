@@ -21,10 +21,12 @@ if (
 }
 
 const sendVerificationOTP = async (phone) => {
+  const twilioPhone = phone.startsWith("+") ? phone : `+${phone}`;
+
   if (env.twilio.verifyServiceSid && twilioClient) {
     await twilioClient.verify.v2
       .services(env.twilio.verifyServiceSid)
-      .verifications.create({ to: phone, channel: "sms" });
+      .verifications.create({ to: twilioPhone, channel: "sms" });
 
     return {
       delivery: "twilio-verify",
@@ -44,7 +46,7 @@ const sendVerificationOTP = async (phone) => {
     await twilioClient.messages.create({
       body: `Your RickRide verification code is ${otpCode}`,
       from: env.twilio.phoneNumber,
-      to: phone,
+      to: twilioPhone,
     });
   } else {
     logger.info("Using development OTP delivery", {
@@ -61,11 +63,13 @@ const sendVerificationOTP = async (phone) => {
 };
 
 const verifyOTP = async (phone, code) => {
+  const twilioPhone = phone.startsWith("+") ? phone : `+${phone}`;
+
   if (env.twilio.verifyServiceSid && twilioClient) {
     const verificationCheck = await twilioClient.verify.v2
       .services(env.twilio.verifyServiceSid)
       .verificationChecks.create({
-        to: phone,
+        to: twilioPhone,
         code,
       });
 

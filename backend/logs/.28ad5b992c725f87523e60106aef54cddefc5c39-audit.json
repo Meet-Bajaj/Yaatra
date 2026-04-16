@@ -6,14 +6,14 @@
     "auditLog": "C:\\Users\\meetb\\Documents\\GitHub\\RickRide\\backend\\logs\\.28ad5b992c725f87523e60106aef54cddefc5c39-audit.json",
     "files": [
         {
-            "date": 1774459416396,
-            "name": "C:\\Users\\meetb\\Documents\\GitHub\\RickRide\\backend\\logs\\2026-03-25-app.log",
-            "hash": "c66f66d4a46a7a2066830ba752204b2c0dcb8c40e7f55ca9b276293450cbc79e"
-        },
-        {
             "date": 1775667992047,
             "name": "C:\\Users\\meetb\\Documents\\GitHub\\RickRide\\backend\\logs\\2026-04-08-app.log",
             "hash": "b22c2df4d2164994f7947d636431a4fc698b7ef72f3ccf549edab23be330b873"
+        },
+        {
+            "date": 1776361922936,
+            "name": "C:\\Users\\meetb\\Documents\\GitHub\\RickRide\\backend\\logs\\2026-04-16-app.log",
+            "hash": "a08a9d9be1936834b9382095194b9030a22823fc9ab62a22c407400ef94bc6fb"
         }
     ],
     "hashType": "sha256"

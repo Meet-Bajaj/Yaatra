@@ -21,7 +21,7 @@ if (
 }
 
 const sendVerificationOTP = async (phone) => {
-  const twilioPhone = phone.startsWith("+") ? phone : `+${phone}`;
+  const twilioPhone = phone.startsWith("+91") ? phone : `+91${phone}`;
 
   if (env.twilio.verifyServiceSid && twilioClient) {
     await twilioClient.verify.v2
@@ -63,7 +63,7 @@ const sendVerificationOTP = async (phone) => {
 };
 
 const verifyOTP = async (phone, code) => {
-  const twilioPhone = phone.startsWith("+") ? phone : `+${phone}`;
+const twilioPhone = phone.startsWith("+91") ? phone : `+91${phone}`;
 
   if (env.twilio.verifyServiceSid && twilioClient) {
     const verificationCheck = await twilioClient.verify.v2

@@ -45,11 +45,15 @@ const upsertDriverProfile = asyncHandler(async (req, res) => {
 });
 
 const getDriverProfile = asyncHandler(async (req, res) => {
-  const userId = req.user.role === "admin" && req.query.userId ? req.query.userId : req.user._id;
+  const userId =
+    req.user.role === "admin" && req.query.userId
+      ? req.query.userId
+      : req.user._id;
+
   const driver = await Driver.findOne({ userId })
     .populate("userId", "name phone email avatarUrl rating fcmToken")
     .populate("vehicle");
-
+  
   if (!driver) {
     throw new AppError("Driver profile not found", 404);
   }
@@ -58,7 +62,6 @@ const getDriverProfile = asyncHandler(async (req, res) => {
     data: driver,
   });
 });
-
 const updateLocation = asyncHandler(async (req, res) => {
   const driver = await resolveDriver(req, req.body.driverId);
   if (!driver) {

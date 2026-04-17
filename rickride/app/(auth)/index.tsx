@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
+import { isAxiosError } from 'axios';
 
 import { AuthCard } from '../../components/AuthCard';
 import { Button } from '../../components/Button';
@@ -12,6 +13,7 @@ import { roleLabels } from '../../constants/config';
 import { authService } from '../../services/authService';
 import { UserRole } from '../../services/types';
 import { normalizePhone } from '../../utils/phone';
+import { ScrollView } from 'react-native-gesture-handler';
 
 const authModes = ['login', 'register'] as const;
 
@@ -57,6 +59,26 @@ export default function LoginScreen() {
           mockCode: otpDetails.mockCode || '',
         },
       });
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+
+      if (mode === 'login' && status === 404) {
+        setMode('register');
+        Toast.show({
+          type: 'info',
+          text1: 'Account not found',
+          text2: 'Please sign up first, then request OTP again.',
+        });
+      }
+
+      if (mode === 'register' && status === 409) {
+        setMode('login');
+        Toast.show({
+          type: 'info',
+          text1: 'Account already exists',
+          text2: 'Please log in with your phone number.',
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -80,6 +102,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           ))}
         </View>
+    <ScrollView>
 
         <Text className="mb-2 text-3xl font-bold text-surfaceDark">Welcome to RickRide</Text>
         <Text className="mb-6 text-base text-gray-500">
@@ -106,7 +129,7 @@ export default function LoginScreen() {
             />
             <Text className="mb-2 text-sm font-semibold text-gray-700">Account type</Text>
             <View className="mb-4 flex-row gap-2">
-              {(['rider', 'driver', 'admin'] as UserRole[]).map((item) => (
+              {(['rider', 'driver'] as UserRole[]).map((item) => (
                 <TouchableOpacity
                   key={item}
                   onPress={() => setRole(item)}
@@ -143,6 +166,7 @@ export default function LoginScreen() {
           onPress={handleContinue}
           disabled={submitting || phone.replace(/\D/g, '').length < 10}
         />
+    </ScrollView>
       </AuthCard>
     </View>
   );

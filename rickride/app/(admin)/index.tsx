@@ -7,7 +7,15 @@ import { adminService } from '../../services/adminService';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function AdminDashboard() {
-  const statsState = useAsyncData(() => adminService.getStats(), []);
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const statsState = useAsyncData(async () => {
+    if (!token || user?.role !== 'admin') {
+      return null;
+    }
+
+    return adminService.getStats();
+  }, [token, user?.role]);
   const logout = useAuthStore((state) => state.logout);
 
   if (statsState.loading && !statsState.data) {

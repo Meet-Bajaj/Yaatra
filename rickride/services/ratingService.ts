@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ApiResponse } from './types';
+import { ApiListResponse, ApiResponse } from './types';
 
 export interface CreateRatingPayload {
   driverId: string;
@@ -28,7 +28,7 @@ export const ratingService = {
   },
 
   async getDriverRatings(driverId: string, page = 1, limit = 10) {
-    const response = await apiClient.get<ApiResponse<DriverRating[]>>(`/rating/${driverId}`, {
+    const response = await apiClient.get<ApiListResponse<DriverRating>>(`/rating/${driverId}`, {
       params: { page, limit },
     });
     return response.data;

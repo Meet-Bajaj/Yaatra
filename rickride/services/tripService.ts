@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { ApiResponse, Trip } from './types';
+import { ApiListResponse, ApiResponse, Trip } from './types';
 
 export interface CreateTripPayload {
   driverId?: string;
@@ -24,7 +24,7 @@ export const tripService = {
     page?: number;
     limit?: number;
   }) {
-    const response = await apiClient.get<ApiResponse<Trip[]>>('/trip', {
+    const response = await apiClient.get<ApiListResponse<Trip>>('/trip', {
       params,
     });
     return response.data;

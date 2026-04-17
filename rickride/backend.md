@@ -1,206 +1,69 @@
-# RickRide Backend
+# RickRide Backend Integration Notes
 
-Production-ready Node.js/Express backend for a ride-sharing platform (Rickshaw + Cab style workflows), including OTP authentication, trip creation, seat booking, payment processing, push notifications, file uploads, and real-time driver location tracking.
+This document describes how the Expo frontend talks to the Node.js backend defined in `endpoint.md`. It is the frontend integration contract, not a backend implementation guide.
 
-## What This API Does
-- Handles rider/driver/admin accounts.
-- Supports OTP login (Twilio or mock OTP in development).
-- Creates and manages trips, bookings, ratings, driver/vehicle profiles.
-- Processes payments with Razorpay and verifies signatures/webhooks.
-- Sends FCM push notifications after successful payment confirmation.
-- Streams live driver locations via Socket.IO.
-- Exposes OpenAPI/Swagger docs for testing and integration.
+## Architecture
 
-## Tech Stack
+RickRide uses a single Expo Router app with role-based route groups for authentication, passenger flows, driver flows, and admin screens. The frontend does not own business logic for authentication, bookings, payments, or driver tracking; it delegates those concerns to the backend through `services/`.
 
-| Package | Why It Exists In This Project |
-|---|---|
-| cors | Allows frontend apps (for example localhost:8081) to call this API safely. |
-| dotenv | Loads environment variables from .env for local/dev setup. |
-| express | Main HTTP server framework for all REST APIs. |
-| express-rate-limit | Protects endpoints from brute-force and request floods. |
-| express-validator | Validates request payloads and rejects invalid input early. |
-| firebase-admin | Sends FCM push notifications (for example payment confirmed). |
-| helmet | Sets secure HTTP headers to reduce common web attack risks. |
-| hpp | Blocks HTTP parameter pollution attacks. |
-| jsonwebtoken | Issues/verifies JWT tokens for protected routes and sockets. |
-| mongoose | ODM layer for MongoDB models and query logic. |
-| multer | Handles multipart file uploads to public/uploads. |
-| nodemon | Auto-restarts server in development mode. |
-| razorpay | Creates Razorpay orders and validates payment/webhook signatures. |
-| redis | Caches live driver location/status and reduces DB load. |
-| socket.io | Real-time channels for driver location updates and rider tracking. |
-| swagger-jsdoc | Builds OpenAPI JSON from route JSDoc comments. |
-| swagger-ui-express | Hosts Swagger UI at /api-docs. |
-| twilio | Sends/verifies OTP SMS in production OTP flow. |
-| winston | Structured application logging. |
-| winston-daily-rotate-file | Rotates log files daily for production operations. |
+The important integration points are:
 
-## Architecture Overview
+- `services/apiClient.ts` for HTTP requests and JWT injection.
+- `services/authService.ts` for login, registration, and OTP verification.
+- `services/bookingService.ts` for booking creation and cancellation.
+- `services/driverService.ts` for driver profile, status, location, and nearby-driver lookup.
+- `services/paymentService.ts` for payment order creation and verification.
+- `services/socketService.ts` for real-time driver location tracking.
+- `services/tripService.ts`, `services/userService.ts`, `services/vehicleService.ts`, `services/adminService.ts`, and `services/ratingService.ts` for the remaining API surfaces.
 
-```mermaid
-flowchart TD
-    A[Client App] --> B[Express App app.js]
-    B --> C[Security Middlewares Helmet CORS HPP RateLimit]
-    C --> D[Route Layer routes/*.js]
-    D --> E[Auth Middleware JWT protect]
-    E --> F[Validation Middleware express-validator]
-    F --> G[Controller Layer controllers/*.js]
-    G --> H[Service Layer services/*.js]
-    H --> I[(MongoDB)]
-    H --> J[(Redis)]
-    H --> K[External APIs Twilio Razorpay Firebase]
-    G --> L[Standard API Response]
+## Request Flow
 
-    A --> M[Socket.IO /driver-location]
-    M --> N[Socket JWT Verification]
-    N --> O[Driver Location Broadcast + Redis Geo Cache]
-```
+1. A screen or store calls a service function.
+2. `apiClient` attaches `Authorization: Bearer <token>` when a session exists.
+3. The backend validates the request and returns the standard envelope from `endpoint.md`.
+4. The service unwraps the `data` field and returns the typed payload to the caller.
+5. Global request failures are surfaced through a toast and a session logout on `401`.
 
-## Request Flow (Simple)
-1. Request enters app.js.
-2. Security middlewares run.
-3. Route matches endpoint.
-4. protect middleware verifies JWT (if route is protected).
-5. validate middleware checks body/query/params.
-6. Controller runs business logic.
-7. Controller calls service/model/external API.
-8. Success response uses utils/apiResponse.
-9. Errors go to centralized middlewares/errorHandler.
+## Auth Handling
 
-## Firebase (FCM) Implementation In This Project
-- Firebase Admin is initialized in config/firebase.js.
-- It supports either:
-  - FIREBASE_SERVICE_ACCOUNT_JSON (single JSON string), or
-  - Split fields: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.
-- notification.service.js uses admin.messaging().send().
-- payment.controller.js triggers notification after payment is completed and booking is confirmed.
-- If Firebase is not configured, the code falls back to mock logging instead of crashing.
+Authentication is OTP-based.
 
-## Environment Variables
-Copy .env.example to .env and fill values.
+- `POST /api/v1/auth/register` creates a new Rider or Driver account.
+- `POST /api/v1/auth/login` sends an OTP.
+- `POST /api/v1/auth/verify-otp` returns a JWT token plus the authenticated user payload.
 
-### Core
-- NODE_ENV: development or production.
-- PORT: API port (default 5000).
-- APP_BASE_URL: Used by Swagger server URL and docs links.
-- CORS_ORIGIN: Allowed frontend origin(s), comma-separated.
+The frontend persists the token and user in secure storage through `store/useAuthStore.ts` and restores it on app startup. Route guards in `app/_layout.tsx` redirect users into the correct role group after hydration.
 
-### Database/Cache
-- MONGO_URI: Mongo connection string.
-- MONGO_DB_NAME: Optional DB name override.
-- REDIS_URI: Redis connection string.
+## Data Flow By Feature
 
-### Auth
-- JWT_SECRET: JWT signing secret. Must be strong in production.
-- JWT_EXPIRES_IN: Token lifetime (for example 7d).
+### Passenger booking
 
-### Rate Limiting
-- RATE_LIMIT_WINDOW_MS: Global limiter window.
-- RATE_LIMIT_MAX: Max requests per window.
-- AUTH_RATE_LIMIT_MAX: Stricter limit for auth routes.
+The confirmation screen loads trip details from `GET /api/v1/trip/:id`, creates a booking with `POST /api/v1/booking`, then creates a payment record with `POST /api/v1/payment/create` when Razorpay is selected. Payment verification uses `POST /api/v1/payment/verify`.
 
-### Twilio
-- TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN: Twilio credentials.
-- TWILIO_SERVICE_SID: Verify service SID (preferred OTP mode).
-- TWILIO_PHONE_NUMBER: Sender number for direct SMS fallback.
+### Driver onboarding
 
-### Razorpay
-- RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET: Order creation and signature verification.
-- RAZORPAY_WEBHOOK_SECRET: Verifies webhook authenticity.
+Driver setup uses `POST /api/v1/driver/profile` and `POST /api/v1/vehicle/register`. The current frontend passes the authenticated user id when available, but the backend still owns the final association logic.
 
-### Firebase
-- FIREBASE_SERVICE_ACCOUNT_JSON: Full service account JSON as string (recommended).
-- FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY: Alternative split config.
-- FIREBASE_DATABASE_URL, FIREBASE_STORAGE_BUCKET: Optional Firebase services.
-- FCM_SERVER_KEY: Legacy field (not required by firebase-admin, kept for compatibility).
+### Driver tracking
 
-### Optional
-- MAX_UPLOAD_SIZE_MB: Upload file size limit.
-- LOG_LEVEL: Logging level (debug/info/warn/error).
+Driver availability uses `PUT /api/v1/driver/status` and `PUT /api/v1/driver/location`. Live tracking uses the Socket.IO driver-location namespace.
 
-## Local Setup
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
+### Admin dashboard
 
-API base URL: http://localhost:5000
+Admin screens read `GET /api/v1/admin/stats` and other read-only endpoints. No admin registration flow is exposed in the final signup UI.
 
-Health endpoint:
-```bash
-curl http://localhost:5000/health
-```
+## Contract Notes
 
-Swagger docs:
-- UI: http://localhost:5000/api-docs
-- JSON: http://localhost:5000/api-docs.json
+- `endpoint.md` is the source of truth for HTTP methods, request bodies, and response envelopes.
+- The frontend must not assume fields that are not documented there.
+- List endpoints should preserve both `data` and `meta` where provided.
+- Coordinates are always handled as `[longitude, latitude]`.
+- Public API base URL is read from `EXPO_PUBLIC_API_URL`.
 
-## Build and Start
-This project is plain Node.js (no TypeScript transpile step).
+## What Is Still In Progress
 
-```bash
-npm run build
-npm start
-```
+- Real Google Maps rendering and coordinate UX.
+- Native Razorpay checkout wiring.
+- Real device GPS tracking for drivers.
 
-## Docker
-
-### Build and Run with Compose
-```bash
-docker compose up --build
-```
-
-What compose now includes:
-- Production NODE_ENV for backend container.
-- Health checks for backend, MongoDB, and Redis.
-- Backend starts only after Mongo/Redis become healthy.
-
-### Build Image Only
-```bash
-docker build -t rickride-backend .
-```
-
-### Run Image Only
-```bash
-docker run --env-file .env -p 5000:5000 rickride-backend
-```
-
-## Deployment Notes (Cloud)
-- Set NODE_ENV=production.
-- Use managed MongoDB and Redis in production.
-- Set a strong JWT_SECRET.
-- Configure Razorpay webhook secret and endpoint.
-- Configure Firebase service account vars for push notifications.
-- Do not rely on local public/uploads for critical docs in production; use object storage (S3/GCS).
-
-## Security Improvements Included
-- Production guard for weak JWT secret.
-- Socket authentication with JWT and role/driver ownership checks.
-- Coordinate validation for trip and location updates.
-- Atomic trip seat reservation to prevent overbooking race conditions.
-- Payment verification idempotency to handle duplicate webhook calls.
-- Graceful shutdown now closes HTTP, MongoDB, and Redis connections.
-
-## Folder Guide (Quick)
-- config: environment + DB/Redis/Firebase setup.
-- controllers: endpoint business logic.
-- middlewares: auth/validation/rate/error pipeline.
-- models: Mongo schemas.
-- routes: API endpoint declarations + validation.
-- services: Twilio/Razorpay/FCM/geo/matching logic.
-- sockets: real-time location namespace.
-- utils: logging, JWT, responses, uploads, crypto helpers.
-- scripts: operational scripts (for example admin seeding).
-
-## Operational Checklist
-- .env configured with real production secrets.
-- MongoDB/Redis reachable from runtime network.
-- Razorpay webhook route reachable publicly.
-- HTTPS termination configured at load balancer/reverse proxy.
-- Logs are persisted/aggregated.
-- Swagger disabled or protected in strict production if needed.
-
-## License
-ISC
+Those items are frontend implementation tasks only and do not require backend architecture changes.

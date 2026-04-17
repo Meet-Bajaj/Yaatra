@@ -100,3 +100,5 @@ export interface ApiResponse<T> {
     totalPages?: number;
   };
 }
+
+export type ApiListResponse<T> = ApiResponse<T[]>;

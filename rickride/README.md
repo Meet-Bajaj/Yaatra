@@ -1,65 +1,74 @@
-# RickRide Platform
+# RickRide
 
-## 1. Project Overview
-RickRide is a unified Expo Router app for the passenger app, driver app, and admin dashboard of the RickRide platform. The frontend is built with React Native, Expo SDK 54, and NativeWind, and it talks directly to the Node.js backend through shared service modules.
+RickRide is a unified Expo Router app for passengers, drivers, and admins in a ride-sharing platform. The frontend is built with Expo, React Native 0.81, NativeWind, Zustand, Axios, and Socket.IO, and it communicates with the Node.js backend documented in `endpoint.md`.
 
-## 2. Product Architecture
-The system consists of three distinct interfaces served within a single repository via Expo Router:
-- **Passenger Interface (`/app/(passenger)`)**: Mobile app layout optimized for passengers.
-- **Driver Interface (`/app/(driver)`)**: Mobile app layout optimized for the driver experience and ride management.
-- **Admin Dashboard (`/app/(admin)`)**: Responsive admin layout for platform operations.
-- **Authentication (`/app/(auth)`)**: Shared auth flows leading to the appropriate interface based on user roles.
+## Features
 
-## 3. Current Frontend Features
-- OTP-based login and signup with role-aware redirects.
-- Driver onboarding tied to backend driver and vehicle endpoints.
-- Passenger ride discovery, booking confirmation, payment setup, and live activity tracking.
-- Driver dashboard, status updates, trip management, and demo location streaming.
-- Admin overview, stats, and analytics screens backed by backend APIs where available.
+- OTP-based authentication with role-based routing.
+- Passenger ride discovery, booking, and trip confirmation.
+- Driver onboarding, status updates, and live location streaming.
+- Admin dashboard and platform analytics.
+- Backend-backed booking, payment, and profile flows.
 
-## 4. Folder Structure
-```text
-/app
-  /(admin)       # Admin pages
-  /(auth)        # Auth and onboarding flow
-  /(driver)      # Driver app screens
-  /(passenger)   # Passenger app screens
-/components      # Reusable UI components
-/constants       # Runtime config and theme constants
-/hooks           # Shared React hooks
-/services        # Axios and Socket.IO integrations
-/store           # Zustand auth and ride stores
-/utils           # Storage, formatting, and error helpers
-```
+## Tech Stack
 
-## 5. Navigation Flow
-Expo Router handles file-based routing:
-- **Boot**: The app starts in `/(auth)` until session hydration completes.
-- **Routing**: After OTP verification, users are redirected by role:
-  - Passenger => `/(passenger)`
-  - Driver => `/(driver)`
-  - Admin => `/(admin)`
+- Expo / React Native
+- Expo Router
+- Zustand
+- Axios
+- Socket.IO Client
+- NativeWind
+- Expo Secure Store
+- React Native Toast Message
 
-## 6. Backend Integration
-The app talks directly to the backend through `services/`:
-- `authService` for register, login, and OTP verification
-- `userService` and `driverService` for profile management
-- `tripService` and `bookingService` for ride flow
-- `paymentService` for Razorpay order and verification calls
-- `socketService` for live driver location tracking
-- `adminService`, `ratingService`, and `vehicleService` for supporting flows
+## Project Structure
 
-## 7. Environment Setup
-Create a `.env` from `.env.example` and configure:
-- `EXPO_PUBLIC_APP_ENV`
-- `EXPO_PUBLIC_API_BASE_URL`
-- `EXPO_PUBLIC_SOCKET_URL`
+- `app/` - Expo Router screens and layouts.
+- `components/` - Shared UI building blocks.
+- `constants/` - Runtime configuration and theme tokens.
+- `hooks/` - Shared data hooks.
+- `services/` - API, payment, socket, and domain service wrappers.
+- `store/` - Zustand session and ride state.
+- `utils/` - Storage, formatting, and error helpers.
+
+## Environment Variables
+
+Create a `.env` file with:
+
+- `EXPO_PUBLIC_API_URL`
+- `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`
 - `EXPO_PUBLIC_RAZORPAY_KEY_ID`
+- `EXPO_PUBLIC_APP_ENV`
 
-## 8. How to Run the Project
-1. Install dependencies with `npm install`
-2. Start Expo with `npm start`
-3. Run a target:
-   - `npm run ios`
-   - `npm run android`
-   - `npm run web`
+Optional:
+
+- `EXPO_PUBLIC_SOCKET_URL`
+- `EXPO_PUBLIC_API_BASE_URL`
+
+## Setup
+
+1. Install dependencies.
+2. Configure `.env`.
+3. Start Expo with `npm start`.
+
+## Run Targets
+
+- Android: `npm run android`
+- iOS: `npm run ios`
+- Web: `npm run web`
+
+## Backend API Overview
+
+The frontend expects the backend to expose the REST and Socket.IO endpoints documented in `endpoint.md`, including:
+
+- Auth: `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/verify-otp`
+- User and driver profile management
+- Trip, booking, payment, vehicle, rating, and admin endpoints
+- Driver-location Socket.IO namespace for live tracking
+
+All protected REST requests use `Authorization: Bearer <jwt_token>`.
+
+## Notes
+
+- Public signup is limited to Rider and Driver.
+- Map, GPS, and Razorpay finalization are still in progress and should be completed before a production release.

@@ -39,11 +39,13 @@ export default function DriverOnboarding() {
 
     try {
       await driverService.upsertProfile({
+        userId: user?._id,
         licenseNumber,
         operatingZone,
       });
 
       await vehicleService.registerVehicle({
+        driverId: user?._id,
         type: vehicleType,
         registrationNumber,
         capacity: Number(capacity),

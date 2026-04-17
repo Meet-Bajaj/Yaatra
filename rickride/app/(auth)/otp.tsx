@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
+import { isAxiosError } from 'axios';
 
 import { AuthCard } from '../../components/AuthCard';
 import { Button } from '../../components/Button';
@@ -57,6 +58,14 @@ export default function OTPScreen() {
       });
 
       router.replace(roleRoutes[session.user.role]);
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 400) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid OTP',
+          text2: 'Please check the code and try again.',
+        });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -67,14 +76,24 @@ export default function OTPScreen() {
       return;
     }
 
-    const otpDetails = await authService.login({ phone });
-    Toast.show({
-      type: 'success',
-      text1: 'OTP sent again',
-      text2: otpDetails.mockCode
-        ? `Development OTP: ${otpDetails.mockCode}`
-        : 'Check your phone for the new code.',
-    });
+    try {
+      const otpDetails = await authService.login({ phone });
+      Toast.show({
+        type: 'success',
+        text1: 'OTP sent again',
+        text2: otpDetails.mockCode
+          ? `Development OTP: ${otpDetails.mockCode}`
+          : 'Check your phone for the new code.',
+      });
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 404) {
+        Toast.show({
+          type: 'error',
+          text1: 'Phone not registered',
+          text2: 'Please create an account first.',
+        });
+      }
+    }
   };
 
   return (

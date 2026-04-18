@@ -7,8 +7,9 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - APP_BASE_URL=http://localhost:5000
-      - MONGO_URI=mongodb://mongo:27017/RickRide
-      - REDIS_URI=redis://redis:6379
+      - MONGO_URI=${MONGO_URI_DOCKER:-mongodb://mongo:27017/RickRide}
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-RickRide}
+      - REDIS_URI=${REDIS_URI_DOCKER:-redis://redis:6379}
     env_file:
       - .env
     depends_on:

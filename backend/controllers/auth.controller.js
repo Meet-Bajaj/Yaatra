@@ -6,18 +6,67 @@ const AppError = require("../utils/appError");
 const { generateToken } = require("../utils/jwt");
 const { hashPassword } = require("../utils/password");
 
+const normalizePhone = (value) => {
+  const input = String(value || "").trim();
+  if (!input) {
+    return "";
+  }
+
+  const digitsOnly = input.replace(/\D/g, "");
+
+  if (input.startsWith("+")) {
+    return `+${digitsOnly}`;
+  }
+
+  if (digitsOnly.length === 10) {
+    return `+91${digitsOnly}`;
+  }
+
+  if (digitsOnly.length > 10 && digitsOnly.startsWith("91")) {
+    return `+${digitsOnly}`;
+  }
+
+  return input;
+};
+
+const getPhoneVariants = (value) => {
+  const normalized = normalizePhone(value);
+  const raw = String(value || "").trim();
+  const digitsOnly = raw.replace(/\D/g, "");
+
+  const variants = new Set([normalized, raw]);
+
+  if (digitsOnly) {
+    variants.add(digitsOnly);
+    if (digitsOnly.length === 10) {
+      variants.add(`+91${digitsOnly}`);
+    }
+    if (digitsOnly.startsWith("91") && digitsOnly.length >= 12) {
+      variants.add(`+${digitsOnly}`);
+      variants.add(digitsOnly.slice(2));
+    }
+  }
+
+  return [...variants].filter(Boolean);
+};
+
 const register = asyncHandler(async (req, res) => {
   const { phone, name, email, password, role } = req.body;
+  const normalizedPhone = normalizePhone(phone);
+
+  if (!normalizedPhone) {
+    throw new AppError("Phone number is required", 400);
+  }
 
   const existingUser = await User.findOne({
-    $or: [{ phone }, ...(email ? [{ email }] : [])],
+    $or: [{ phone: { $in: getPhoneVariants(phone) } }, ...(email ? [{ email }] : [])],
   });
   if (existingUser) {
     throw new AppError("A user with this phone or email already exists", 409);
   }
 
   const user = await User.create({
-    phone,
+    phone: normalizedPhone,
     name,
     email,
     password: password ? hashPassword(password) : undefined,
@@ -38,18 +87,23 @@ const register = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const { phone } = req.body;
+  const phoneVariants = getPhoneVariants(phone);
 
-  const user = await User.findOne({ phone });
+  if (!phoneVariants.length) {
+    throw new AppError("Phone number is required", 400);
+  }
+
+  const user = await User.findOne({ phone: { $in: phoneVariants } });
   if (!user || !user.isActive || user.isDeleted) {
     throw new AppError("User not found", 404);
   }
 
-  const otpDetails = await sendVerificationOTP(phone);
+  const otpDetails = await sendVerificationOTP(user.phone);
 
   sendSuccess(res, {
     message: "OTP sent successfully",
     data: {
-      phone,
+      phone: user.phone,
       delivery: otpDetails.delivery,
       ...(otpDetails.mockCode ? { mockCode: otpDetails.mockCode } : {}),
     },
@@ -58,15 +112,20 @@ const login = asyncHandler(async (req, res) => {
 
 const verifyUserOTP = asyncHandler(async (req, res) => {
   const { phone, code } = req.body;
+  const phoneVariants = getPhoneVariants(phone);
 
-  const isValid = await verifyOTP(phone, code);
-  if (!isValid) {
-    throw new AppError("Invalid or expired OTP", 400);
+  if (!phoneVariants.length) {
+    throw new AppError("Phone number is required", 400);
   }
 
-  const user = await User.findOne({ phone });
+  const user = await User.findOne({ phone: { $in: phoneVariants } });
   if (!user || !user.isActive || user.isDeleted) {
     throw new AppError("User not found", 404);
+  }
+
+  const isValid = await verifyOTP(user.phone, code);
+  if (!isValid) {
+    throw new AppError("Invalid or expired OTP", 400);
   }
 
   const token = generateToken(user._id, user.role);

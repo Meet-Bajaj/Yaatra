@@ -10,7 +10,7 @@ const seedAdmin = async () => {
     console.log("Connecting to database...");
     await connectDB();
 
-    const adminPhone = "+911234567890"; // Replace with your desired admin phone number
+    const adminPhone = "+917082416789"; // Replace with your desired admin phone number
     const adminEmail = "admin@rickride.com";
 
     const existingAdmin = await User.findOne({ phone: adminPhone });

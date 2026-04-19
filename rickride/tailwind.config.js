@@ -13,6 +13,7 @@ module.exports = {
           500: '#099f9f',
           800: '#066f6f',
         },
+        backgroundLight: '#f5f8f8',
         backgroundTitle: '#f5f8f8',
         backgroundDark: '#102222',
         surfaceDark: '#182c2c',

@@ -9,16 +9,13 @@ import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { useAsyncData } from '../../hooks/useAsyncData';
+import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { driverService } from '../../services/driverService';
 import { socketService } from '../../services/socketService';
 
-const demoLocation = {
-  longitude: 79.0882,
-  latitude: 21.1458,
-};
-
 export default function DriverDashboard() {
   const router = useRouter();
+  const locationState = useDeviceLocation({ autoRequest: true });
   const profileState = useAsyncData(async () => {
     try {
       return await driverService.getMyDriverProfile();
@@ -34,42 +31,69 @@ export default function DriverDashboard() {
       return;
     }
 
-    const nextStatus = profileState.data.status === 'online' ? 'offline' : 'online';
-    const updated = await driverService.updateDriverStatus({ status: nextStatus });
-    profileState.setData(updated);
+    try {
+      const nextStatus = profileState.data.status === 'online' ? 'offline' : 'online';
+      const updated = await driverService.updateDriverStatus({ status: nextStatus });
+      profileState.setData(updated);
 
-    if (nextStatus === 'online') {
-      await socketService.connect();
-      socketService.registerDriver(updated._id);
-    } else {
-      socketService.disconnect();
+      if (nextStatus === 'online') {
+        await socketService.connect();
+        socketService.registerDriver(updated._id);
+      } else {
+        socketService.disconnect();
+      }
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Status update failed',
+        text2: 'Please try again.',
+      });
     }
   };
 
-  const handleSendDemoLocation = async () => {
+  const handleSendLocationUpdate = async () => {
     if (!profileState.data) {
       return;
     }
 
-    const updated = await driverService.updateDriverLocation({
-      longitude: demoLocation.longitude + Math.random() / 100,
-      latitude: demoLocation.latitude + Math.random() / 100,
-      status: 'online',
-    });
+    const location = await locationState.refreshLocation();
+    if (!location) {
+      Toast.show({
+        type: 'error',
+        text1: 'Location unavailable',
+        text2: 'Please enable location permission and try again.',
+      });
+      return;
+    }
 
-    await socketService.connect();
-    socketService.registerDriver(updated._id);
-    socketService.updateLocation(
-      updated._id,
-      updated.location?.coordinates?.[0] || demoLocation.longitude,
-      updated.location?.coordinates?.[1] || demoLocation.latitude
-    );
+    try {
+      const updated = await driverService.updateDriverLocation({
+        longitude: location.longitude,
+        latitude: location.latitude,
+        status: 'online',
+      });
 
-    profileState.setData(updated);
-    Toast.show({
-      type: 'success',
-      text1: 'Demo location sent',
-    });
+      await socketService.connect();
+      socketService.registerDriver(updated._id);
+      socketService.updateLocation(
+        updated._id,
+        updated.location?.coordinates?.[0] || location.longitude,
+        updated.location?.coordinates?.[1] || location.latitude
+      );
+
+      profileState.setData(updated);
+      Toast.show({
+        type: 'success',
+        text1: 'Location update sent',
+        text2: locationState.addressLabel || undefined,
+      });
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Location update failed',
+        text2: 'Please try again.',
+      });
+    }
   };
 
   if (profileState.loading && profileState.data === null) {
@@ -95,6 +119,9 @@ export default function DriverDashboard() {
       <ScrollView className="px-4 pt-6">
         <Text className="text-sm uppercase tracking-[2px] text-primary">Driver</Text>
         <Text className="mt-2 text-3xl font-bold text-surfaceDark">Live dashboard</Text>
+        <Text className="mt-2 text-sm text-gray-500">
+          {locationState.addressLabel || 'Using current device location for driver tracking.'}
+        </Text>
 
         <View className="mt-6 rounded-3xl bg-white p-5 shadow-sm">
           <View className="flex-row items-center justify-between">
@@ -135,7 +162,14 @@ export default function DriverDashboard() {
         </View>
 
         <View className="mt-6">
-          <Button title="Send demo location update" onPress={handleSendDemoLocation} />
+          <Button
+            title={locationState.loading ? 'Fetching location...' : 'Send live location update'}
+            onPress={handleSendLocationUpdate}
+            disabled={locationState.loading}
+          />
+          {locationState.error ? (
+            <Text className="mt-3 text-sm text-amber-700">{locationState.error}</Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>

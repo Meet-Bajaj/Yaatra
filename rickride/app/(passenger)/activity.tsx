@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 
+import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { bookingService } from '../../services/bookingService';
@@ -9,13 +13,16 @@ import { socketService } from '../../services/socketService';
 import { useRideStore } from '../../store/useRideStore';
 
 export default function PassengerActivity() {
+  const router = useRouter();
   const activeBooking = useRideStore((state) => state.activeBooking);
   const trackedDriver = useRideStore((state) => state.trackedDriver);
   const latestDriverLocation = useRideStore((state) => state.latestDriverLocation);
   const setLatestDriverLocation = useRideStore((state) => state.setLatestDriverLocation);
+  const setActiveBooking = useRideStore((state) => state.setActiveBooking);
 
   const [booking, setBooking] = useState(activeBooking);
   const [loading, setLoading] = useState(Boolean(activeBooking));
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!activeBooking?._id) {
@@ -28,6 +35,13 @@ export default function PassengerActivity() {
       .getBooking(activeBooking._id)
       .then((result) => {
         setBooking(result);
+      })
+      .catch(() => {
+        Toast.show({
+          type: 'error',
+          text1: 'Unable to load booking',
+          text2: 'Showing last known booking details.',
+        });
       })
       .finally(() => setLoading(false));
   }, [activeBooking?._id]);
@@ -47,10 +61,19 @@ export default function PassengerActivity() {
       setLatestDriverLocation(payload);
     };
 
-    socketService.connect().then(() => {
-      socketService.trackDriver(driverId);
-      socketService.onLocationUpdated(callback);
-    });
+    socketService
+      .connect()
+      .then(() => {
+        socketService.trackDriver(driverId);
+        socketService.onLocationUpdated(callback);
+      })
+      .catch(() => {
+        Toast.show({
+          type: 'error',
+          text1: 'Live tracking unavailable',
+          text2: 'Please check your connection and try again.',
+        });
+      });
 
     return () => {
       socketService.offLocationUpdated(callback);
@@ -70,6 +93,36 @@ export default function PassengerActivity() {
       trackedDriver?.userId?.name,
     [booking, trackedDriver]
   );
+
+  const handleCancelBooking = async () => {
+    const bookingId = activeBooking?._id;
+    if (!bookingId) {
+      return;
+    }
+
+    setCancelling(true);
+
+    try {
+      const cancelled = await bookingService.cancelBooking(bookingId);
+      setBooking(cancelled);
+      setActiveBooking(cancelled);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Booking cancelled',
+      });
+
+      router.replace('/(passenger)');
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to cancel booking',
+        text2: 'Please try again.',
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (!activeBooking) {
     return (
@@ -127,6 +180,19 @@ export default function PassengerActivity() {
             </Text>
           )}
         </View>
+
+        {(booking?.status || activeBooking.status) !== 'cancelled' ? (
+          <View className="mb-10 mt-6">
+            <Button
+              title={cancelling ? 'Cancelling...' : 'Cancel booking'}
+              onPress={handleCancelBooking}
+              disabled={cancelling}
+              className="bg-red-500"
+            />
+          </View>
+        ) : (
+          <View className="mb-10" />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,10 +1,26 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
 import { theme } from '../../constants/theme';
+import { useThemeStore } from '../../store/useThemeStore';
 
 export default function PassengerLayout() {
+  const colorScheme = useColorScheme();
+  const mode = useThemeStore((state) => state.mode);
+  const isDarkMode = mode === 'dark' || (mode === 'system' && colorScheme === 'dark');
+
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: theme.colors.primary }}>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: isDarkMode ? '#b8c8c8' : '#6b7280',
+        tabBarStyle: {
+          backgroundColor: isDarkMode ? '#182c2c' : '#ffffff',
+          borderTopColor: isDarkMode ? '#1f3a3a' : '#e5e7eb',
+        },
+        headerStyle: { backgroundColor: isDarkMode ? '#182c2c' : '#ffffff' },
+        headerTintColor: isDarkMode ? '#f8fafc' : '#182c2c',
+      }}>
       <Tabs.Screen
         name="index"
         options={{

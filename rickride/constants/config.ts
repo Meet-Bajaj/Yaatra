@@ -58,6 +58,7 @@ export const appConfig = {
   socketUrl: resolveLocalhostForDevice(process.env.EXPO_PUBLIC_SOCKET_URL || defaultSocketUrl),
   environment: process.env.EXPO_PUBLIC_APP_ENV || 'development',
   razorpayKeyId: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '',
+  googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
 };
 
 export const roleRoutes = {

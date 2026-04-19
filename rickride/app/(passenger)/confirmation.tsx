@@ -99,6 +99,12 @@ export default function RideConfirmation() {
       }
 
       router.replace('/(passenger)/activity');
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to confirm booking',
+        text2: 'Please check details and try again.',
+      });
     } finally {
       setSubmitting(false);
     }

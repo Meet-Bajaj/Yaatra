@@ -7,19 +7,16 @@ import { Button } from '../../components/Button';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingView } from '../../components/LoadingView';
 import { useAsyncData } from '../../hooks/useAsyncData';
+import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { driverService } from '../../services/driverService';
 import { tripService } from '../../services/tripService';
 import { Trip } from '../../services/types';
 import { useRideStore } from '../../store/useRideStore';
 
-const demoCoordinates = {
-  longitude: 79.0882,
-  latitude: 21.1458,
-};
-
 export default function PassengerHome() {
   const router = useRouter();
   const setSelectedTrip = useRideStore((state) => state.setSelectedTrip);
+  const locationState = useDeviceLocation({ autoRequest: true });
 
   const tripsState = useAsyncData(async () => {
     const response = await tripService.getTrips({ status: 'open', limit: 20 });
@@ -27,8 +24,19 @@ export default function PassengerHome() {
   }, []);
 
   const nearbyDriversState = useAsyncData(
-    () => driverService.getNearbyDrivers(demoCoordinates.longitude, demoCoordinates.latitude, 5, 6),
-    []
+    async () => {
+      if (!locationState.location) {
+        return [];
+      }
+
+      return driverService.getNearbyDrivers(
+        locationState.location.longitude,
+        locationState.location.latitude,
+        5,
+        6
+      );
+    },
+    [locationState.location?.latitude, locationState.location?.longitude]
   );
 
   const handleSelectTrip = (trip: Trip) => {
@@ -52,6 +60,7 @@ export default function PassengerHome() {
           <RefreshControl
             refreshing={tripsState.loading || nearbyDriversState.loading}
             onRefresh={() => {
+              locationState.refreshLocation().catch(() => undefined);
               tripsState.reload().catch(() => undefined);
               nearbyDriversState.reload().catch(() => undefined);
             }}
@@ -61,8 +70,9 @@ export default function PassengerHome() {
           <Text className="text-sm uppercase tracking-[2px] text-primary">Passenger</Text>
           <Text className="mt-2 text-3xl font-bold text-surfaceDark">Available rides near you</Text>
           <Text className="mt-2 text-base text-gray-500">
-            Using a demo pickup point near Nagpur for development. Set `EXPO_PUBLIC_API_BASE_URL`
-            for your device if needed.
+            {locationState.location
+              ? `Pickup area: ${locationState.addressLabel || 'Current device location'}`
+              : 'Enable location to discover nearby drivers in your area.'}
           </Text>
         </View>
 
@@ -74,6 +84,9 @@ export default function PassengerHome() {
             </Text>
           </View>
           <View className="mt-4 gap-3">
+            {locationState.error ? (
+              <Text className="text-sm text-amber-700">{locationState.error}</Text>
+            ) : null}
             {(nearbyDriversState.data || []).slice(0, 3).map((driver) => (
               <View
                 key={driver._id}
@@ -98,6 +111,7 @@ export default function PassengerHome() {
             title="Refresh"
             className="w-auto px-4 py-3"
             onPress={() => {
+              locationState.refreshLocation().catch(() => undefined);
               tripsState.reload().catch(() => undefined);
               nearbyDriversState.reload().catch(() => undefined);
             }}

@@ -2,11 +2,14 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const SESSION_KEY = 'rickride.session';
+const THEME_KEY = 'rickride.theme';
 
 export interface PersistedSession {
   token: string;
   user: unknown;
 }
+
+export type ThemePreference = 'light' | 'dark' | 'system';
 
 const webStorage = {
   getItem(key: string) {
@@ -59,5 +62,37 @@ export const sessionStorage = {
     }
 
     await SecureStore.deleteItemAsync(SESSION_KEY);
+  },
+};
+
+export const preferenceStorage = {
+  async getThemePreference(): Promise<ThemePreference | null> {
+    try {
+      const rawValue =
+        Platform.OS === 'web'
+          ? webStorage.getItem(THEME_KEY)
+          : await SecureStore.getItemAsync(THEME_KEY);
+
+      if (!rawValue) {
+        return null;
+      }
+
+      if (rawValue === 'light' || rawValue === 'dark' || rawValue === 'system') {
+        return rawValue;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setThemePreference(value: ThemePreference) {
+    if (Platform.OS === 'web') {
+      webStorage.setItem(THEME_KEY, value);
+      return;
+    }
+
+    await SecureStore.setItemAsync(THEME_KEY, value);
   },
 };

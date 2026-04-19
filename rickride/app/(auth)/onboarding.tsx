@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { Button } from '../../components/Button';
 import { FormInput } from '../../components/FormInput';
 import { StepProgressBar } from '../../components/StepProgressBar';
 import { roleRoutes } from '../../constants/config';
+import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { driverService } from '../../services/driverService';
 import { vehicleService } from '../../services/vehicleService';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -17,6 +18,7 @@ const steps = ['Driver', 'Vehicle'];
 export default function DriverOnboarding() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const locationState = useDeviceLocation({ autoRequest: true });
 
   const [currentStep, setCurrentStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +31,12 @@ export default function DriverOnboarding() {
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
 
+  useEffect(() => {
+    if (!operatingZone && locationState.addressLabel) {
+      setOperatingZone(locationState.addressLabel);
+    }
+  }, [locationState.addressLabel, operatingZone]);
+
   const handleNext = async () => {
     if (currentStep === 0) {
       setCurrentStep(1);
@@ -38,17 +46,27 @@ export default function DriverOnboarding() {
     setSubmitting(true);
 
     try {
-      await driverService.upsertProfile({
+      const normalizedCapacity = Number(capacity);
+      if (!Number.isFinite(normalizedCapacity) || normalizedCapacity <= 0) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid capacity',
+          text2: 'Please enter a seat capacity greater than 0.',
+        });
+        return;
+      }
+
+      const driverProfile = await driverService.upsertProfile({
         userId: user?._id,
         licenseNumber,
         operatingZone,
       });
 
       await vehicleService.registerVehicle({
-        driverId: user?._id,
+        driverId: driverProfile._id,
         type: vehicleType,
         registrationNumber,
-        capacity: Number(capacity),
+        capacity: normalizedCapacity,
         make: make || undefined,
         model: model || undefined,
       });
@@ -87,6 +105,11 @@ export default function DriverOnboarding() {
               value={operatingZone}
               onChangeText={setOperatingZone}
             />
+            {locationState.addressLabel ? (
+              <Text className="mb-2 text-xs text-gray-500">
+                Suggested from device location: {locationState.addressLabel}
+              </Text>
+            ) : null}
             <Text className="mt-3 text-sm text-gray-500">
               Document uploads are available on the backend, but this Expo app does not yet include
               a native file-picker dependency.

@@ -5,6 +5,7 @@ const { sendSuccess } = require("../utils/apiResponse");
 const AppError = require("../utils/appError");
 const { generateToken } = require("../utils/jwt");
 const { hashPassword } = require("../utils/password");
+const logger = require("../utils/logger");
 
 const normalizePhone = (value) => {
   const input = String(value || "").trim();
@@ -13,20 +14,13 @@ const normalizePhone = (value) => {
   }
 
   const digitsOnly = input.replace(/\D/g, "");
-
-  if (input.startsWith("+")) {
-    return `+${digitsOnly}`;
+  if (!digitsOnly) {
+    return "";
   }
 
-  if (digitsOnly.length === 10) {
-    return `+91${digitsOnly}`;
-  }
-
-  if (digitsOnly.length > 10 && digitsOnly.startsWith("91")) {
-    return `+${digitsOnly}`;
-  }
-
-  return input;
+  // Normalize all accepted India-style inputs to +91XXXXXXXXXX.
+  const localTenDigits = digitsOnly.slice(-10);
+  return `+91${localTenDigits}`;
 };
 
 const getPhoneVariants = (value) => {
@@ -38,13 +32,12 @@ const getPhoneVariants = (value) => {
 
   if (digitsOnly) {
     variants.add(digitsOnly);
-    if (digitsOnly.length === 10) {
-      variants.add(`+91${digitsOnly}`);
-    }
-    if (digitsOnly.startsWith("91") && digitsOnly.length >= 12) {
-      variants.add(`+${digitsOnly}`);
-      variants.add(digitsOnly.slice(2));
-    }
+
+    const localTenDigits = digitsOnly.slice(-10);
+    variants.add(localTenDigits);
+    variants.add(`+91${localTenDigits}`);
+    variants.add(`91${localTenDigits}`);
+    variants.add(`0${localTenDigits}`);
   }
 
   return [...variants].filter(Boolean);
@@ -53,24 +46,39 @@ const getPhoneVariants = (value) => {
 const register = asyncHandler(async (req, res) => {
   const { phone, name, email, password, role } = req.body;
   const normalizedPhone = normalizePhone(phone);
+  const phoneVariants = getPhoneVariants(phone);
+  const normalizedEmail = email ? String(email).trim().toLowerCase() : undefined;
 
   if (!normalizedPhone) {
     throw new AppError("Phone number is required", 400);
   }
 
   const existingUser = await User.findOne({
-    $or: [{ phone: { $in: getPhoneVariants(phone) } }, ...(email ? [{ email }] : [])],
-  });
+    $or: [{ phone: { $in: phoneVariants } }, ...(normalizedEmail ? [{ email: normalizedEmail }] : [])],
+  }).select("_id phone email role isDeleted");
+
   if (existingUser) {
+    logger.warn("Registration blocked due to existing user identity", {
+      phone: normalizedPhone,
+      role: existingUser.role,
+      existingUserId: existingUser._id,
+      existingUserDeleted: existingUser.isDeleted,
+    });
     throw new AppError("A user with this phone or email already exists", 409);
   }
 
   const user = await User.create({
     phone: normalizedPhone,
     name,
-    email,
+    email: normalizedEmail,
     password: password ? hashPassword(password) : undefined,
     role: role || "rider",
+  });
+
+  logger.info("User registered", {
+    userId: user._id,
+    role: user.role,
+    phone: user.phone,
   });
 
   const token = generateToken(user._id, user.role);
@@ -93,8 +101,16 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError("Phone number is required", 400);
   }
 
-  const user = await User.findOne({ phone: { $in: phoneVariants } });
-  if (!user || !user.isActive || user.isDeleted) {
+  const user = await User.findOne({
+    phone: { $in: phoneVariants },
+    isActive: true,
+    isDeleted: false,
+  }).select("_id phone role isActive isDeleted");
+
+  if (!user) {
+    logger.warn("Login denied: active user not found", {
+      phoneVariants,
+    });
     throw new AppError("User not found", 404);
   }
 
@@ -118,8 +134,16 @@ const verifyUserOTP = asyncHandler(async (req, res) => {
     throw new AppError("Phone number is required", 400);
   }
 
-  const user = await User.findOne({ phone: { $in: phoneVariants } });
-  if (!user || !user.isActive || user.isDeleted) {
+  const user = await User.findOne({
+    phone: { $in: phoneVariants },
+    isActive: true,
+    isDeleted: false,
+  });
+
+  if (!user) {
+    logger.warn("OTP verification denied: active user not found", {
+      phoneVariants,
+    });
     throw new AppError("User not found", 404);
   }
 
@@ -129,6 +153,11 @@ const verifyUserOTP = asyncHandler(async (req, res) => {
   }
 
   const token = generateToken(user._id, user.role);
+
+  logger.info("User authenticated via OTP", {
+    userId: user._id,
+    role: user.role,
+  });
 
   sendSuccess(res, {
     message: "OTP verified successfully",

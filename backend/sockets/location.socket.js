@@ -1,4 +1,5 @@
 const Driver = require("../models/driver");
+const User = require("../models/users");
 const { verifyToken } = require("../utils/jwt");
 const { redisClient, isRedisReady } = require("../config/redis");
 const logger = require("../utils/logger");
@@ -6,7 +7,7 @@ const logger = require("../utils/logger");
 const initializeSockets = (io) => {
   const locationNamespace = io.of("/driver-location");
 
-  locationNamespace.use((socket, next) => {
+  locationNamespace.use(async (socket, next) => {
     try {
       const bearerToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
       if (!bearerToken) {
@@ -18,9 +19,20 @@ const initializeSockets = (io) => {
         : bearerToken;
 
       const decoded = verifyToken(token);
+
+      const user = await User.findOne({
+        _id: decoded.id,
+        isActive: true,
+        isDeleted: false,
+      }).select("_id role");
+
+      if (!user) {
+        return next(new Error("Authenticated user was not found"));
+      }
+
       socket.data.user = {
-        id: decoded.id,
-        role: decoded.role,
+        id: user._id.toString(),
+        role: user.role,
       };
 
       return next();

@@ -1,5 +1,17 @@
 const mongoose = require("mongoose");
 
+const normalizePhone = (value) => {
+  const input = String(value || "").trim();
+  const digitsOnly = input.replace(/\D/g, "");
+
+  if (!digitsOnly) {
+    return input;
+  }
+
+  const localTenDigits = digitsOnly.slice(-10);
+  return `+91${localTenDigits}`;
+};
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -61,5 +73,11 @@ const userSchema = new mongoose.Schema(
     },
   }
 );
+
+userSchema.pre("validate", function normalizeUserPhone() {
+  if (this.phone) {
+    this.phone = normalizePhone(this.phone);
+  }
+});
 
 module.exports = mongoose.model("User", userSchema);

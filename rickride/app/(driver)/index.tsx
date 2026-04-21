@@ -1,21 +1,40 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import Toast from 'react-native-toast-message';
+import { useRouter } from 'expo-router';
 
-import { Button } from '../../components/Button';
-import { EmptyState } from '../../components/EmptyState';
-import { LoadingView } from '../../components/LoadingView';
-import { useAsyncData } from '../../hooks/useAsyncData';
+import MapView, { Marker, Polyline } from '../../components/MapMock';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { driverService } from '../../services/driverService';
 import { socketService } from '../../services/socketService';
+import { theme } from '../../constants/theme';
+import { Button } from '../../components/Button';
+import { LoadingView } from '../../components/LoadingView';
+import { EmptyState } from '../../components/EmptyState';
+
+const mapCustomStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }
+];
 
 export default function DriverDashboard() {
   const router = useRouter();
   const locationState = useDeviceLocation({ autoRequest: true });
+  const mapRef = useRef<any>(null);
+
   const profileState = useAsyncData(async () => {
     try {
       return await driverService.getMyDriverProfile();
@@ -26,11 +45,19 @@ export default function DriverDashboard() {
 
   useEffect(() => () => socketService.disconnect(), []);
 
-  const handleToggleStatus = async () => {
-    if (!profileState.data) {
-      return;
+  useEffect(() => {
+    if (locationState.location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: locationState.location.latitude,
+        longitude: locationState.location.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
     }
+  }, [locationState.location]);
 
+  const handleToggleStatus = async () => {
+    if (!profileState.data) return;
     try {
       const nextStatus = profileState.data.status === 'online' ? 'offline' : 'online';
       const updated = await driverService.updateDriverStatus({ status: nextStatus });
@@ -43,55 +70,17 @@ export default function DriverDashboard() {
         socketService.disconnect();
       }
     } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Status update failed',
-        text2: 'Please try again.',
-      });
+      Toast.show({ type: 'error', text1: 'Status update failed' });
     }
   };
 
-  const handleSendLocationUpdate = async () => {
-    if (!profileState.data) {
-      return;
-    }
-
-    const location = await locationState.refreshLocation();
-    if (!location) {
-      Toast.show({
-        type: 'error',
-        text1: 'Location unavailable',
-        text2: 'Please enable location permission and try again.',
-      });
-      return;
-    }
-
-    try {
-      const updated = await driverService.updateDriverLocation({
-        longitude: location.longitude,
-        latitude: location.latitude,
-        status: 'online',
-      });
-
-      await socketService.connect();
-      socketService.registerDriver(updated._id);
-      socketService.updateLocation(
-        updated._id,
-        updated.location?.coordinates?.[0] || location.longitude,
-        updated.location?.coordinates?.[1] || location.latitude
-      );
-
-      profileState.setData(updated);
-      Toast.show({
-        type: 'success',
-        text1: 'Location update sent',
-        text2: locationState.addressLabel || undefined,
-      });
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Location update failed',
-        text2: 'Please try again.',
+  const centerMap = () => {
+    if (locationState.location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: locationState.location.latitude,
+        longitude: locationState.location.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       });
     }
   };
@@ -102,76 +91,131 @@ export default function DriverDashboard() {
 
   if (!profileState.data) {
     return (
-      <SafeAreaView className="bg-backgroundLight flex-1 px-4 pt-6">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#121212', padding: 16 }}>
         <EmptyState
           title="Driver profile missing"
-          description="Complete onboarding before you go online and accept trips."
+          description="Complete onboarding before you go online."
           actionLabel="Start onboarding"
           onAction={() => router.push('/(auth)/onboarding')}
-          icon={<Ionicons name="car-sport" size={36} color="#099f9f" />}
+          icon={<Ionicons name="car-sport" size={36} color="#00D4FF" />}
         />
       </SafeAreaView>
     );
   }
 
+  const isOnline = profileState.data.status === 'online';
+
   return (
-    <SafeAreaView className="bg-backgroundLight flex-1">
-      <ScrollView className="px-4 pt-6">
-        <Text className="text-sm uppercase tracking-[2px] text-primary">Driver</Text>
-        <Text className="mt-2 text-3xl font-bold text-surfaceDark">Live dashboard</Text>
-        <Text className="mt-2 text-sm text-gray-500">
-          {locationState.addressLabel || 'Using current device location for driver tracking.'}
-        </Text>
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        customMapStyle={mapCustomStyle}
+        initialRegion={locationState.location ? {
+          latitude: locationState.location.latitude,
+          longitude: locationState.location.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        } : undefined}
+        showsUserLocation={false} 
+      >
+        {locationState.location && (
+          <Marker coordinate={locationState.location} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={isOnline ? styles.onlineDot : styles.offlineDot}>
+              <View style={isOnline ? styles.onlineDotInner : styles.offlineDotInner} />
+            </View>
+          </Marker>
+        )}
+      </MapView>
 
-        <View className="mt-6 rounded-3xl bg-white p-5 shadow-sm">
-          <View className="flex-row items-center justify-between">
+      <SafeAreaView edges={['top']} style={styles.headerOverlay}>
+        <View style={styles.headerBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+            <Ionicons name="menu" size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleToggleStatus} style={[styles.statusPill, isOnline ? styles.statusPillOnline : styles.statusPillOffline]}>
+            <View style={[styles.statusIndicator, isOnline ? styles.statusIndicatorOnline : styles.statusIndicatorOffline]} />
+            <Text style={styles.statusText}>{isOnline ? 'Online' : 'Offline'}</Text>
+          </TouchableOpacity>
+          <View style={styles.iconButton}>
+            <Ionicons name="notifications" size={24} color="#fff" />
+          </View>
+        </View>
+      </SafeAreaView>
+
+      <TouchableOpacity style={styles.fabLocation} onPress={centerMap}>
+        <Ionicons name="locate" size={24} color={theme.colors.primary} />
+      </TouchableOpacity>
+
+      <BottomSheet
+        snapPoints={['30%']}
+        backgroundStyle={styles.bottomSheetBg}
+        handleIndicatorStyle={{ backgroundColor: '#4a5568' }}
+      >
+        <BottomSheetView style={styles.bottomSheetContent}>
+          <View style={styles.driverInfoRow}>
             <View>
-              <Text className="text-lg font-bold text-surfaceDark">
-                {profileState.data.userId?.name || 'Driver'}
-              </Text>
-              <Text className="mt-1 text-sm text-gray-500">
-                {profileState.data.operatingZone || 'No zone set'}
-              </Text>
+              <Text style={styles.greetingText}>Hello, {profileState.data.userId?.name || 'Driver'}</Text>
+              <Text style={styles.zoneText}>{profileState.data.operatingZone || 'No zone set'}</Text>
             </View>
-            <TouchableOpacity
-              onPress={handleToggleStatus}
-              className={`rounded-full px-4 py-2 ${
-                profileState.data.status === 'online' ? 'bg-success/10' : 'bg-gray-100'
-              }`}>
-              <Text
-                className={`font-semibold ${profileState.data.status === 'online' ? 'text-success' : 'text-gray-600'}`}>
-                {profileState.data.status}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="mt-5 gap-3">
-            <View className="bg-backgroundLight rounded-2xl px-4 py-4">
-              <Text className="text-sm text-gray-500">Vehicle</Text>
-              <Text className="mt-1 text-base font-semibold text-surfaceDark">
-                {profileState.data.vehicle?.type || 'No vehicle linked'}
-              </Text>
-            </View>
-            <View className="bg-backgroundLight rounded-2xl px-4 py-4">
-              <Text className="text-sm text-gray-500">Earnings</Text>
-              <Text className="mt-1 text-base font-semibold text-surfaceDark">
-                INR {profileState.data.earnings || 0}
-              </Text>
+            <View style={styles.earningsBadge}>
+              <Text style={styles.earningsLabel}>TODAY</Text>
+              <Text style={styles.earningsValue}>₹{profileState.data.earnings || '0'}</Text>
             </View>
           </View>
-        </View>
 
-        <View className="mt-6">
+          <View style={styles.statsGrid}>
+            <View style={styles.statBox}>
+              <Ionicons name="car" size={20} color="#9ca5b3" />
+              <Text style={styles.statBoxValue}>{profileState.data.vehicle?.type || 'Auto'}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Ionicons name="star" size={20} color="#fbbf24" />
+              <Text style={styles.statBoxValue}>4.9</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Ionicons name="time" size={20} color="#9ca5b3" />
+              <Text style={styles.statBoxValue}>4h 20m</Text>
+            </View>
+          </View>
+          
           <Button
-            title={locationState.loading ? 'Fetching location...' : 'Send live location update'}
-            onPress={handleSendLocationUpdate}
-            disabled={locationState.loading}
+            title={isOnline ? "Looking for riders..." : "GO ONLINE"}
+            className={isOnline ? "bg-primary" : "bg-gray-600"}
+            onPress={handleToggleStatus}
           />
-          {locationState.error ? (
-            <Text className="mt-3 text-sm text-amber-700">{locationState.error}</Text>
-          ) : null}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </BottomSheetView>
+      </BottomSheet>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#121212' },
+  headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1f2937', justifyContent: 'center', alignItems: 'center' },
+  statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, gap: 8 },
+  statusPillOnline: { backgroundColor: 'rgba(0, 212, 255, 0.15)', borderWidth: 1, borderColor: '#00D4FF' },
+  statusPillOffline: { backgroundColor: '#1f2937', borderWidth: 1, borderColor: '#374151' },
+  statusIndicator: { width: 8, height: 8, borderRadius: 4 },
+  statusIndicatorOnline: { backgroundColor: '#00D4FF' },
+  statusIndicatorOffline: { backgroundColor: '#6b7280' },
+  statusText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  fabLocation: { position: 'absolute', right: 16, bottom: '35%', width: 50, height: 50, borderRadius: 25, backgroundColor: '#1f2937', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
+  onlineDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0, 212, 255, 0.3)', justifyContent: 'center', alignItems: 'center' },
+  onlineDotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#00D4FF' },
+  offlineDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(107, 114, 128, 0.3)', justifyContent: 'center', alignItems: 'center' },
+  offlineDotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#9ca5b3' },
+  bottomSheetBg: { backgroundColor: '#1f2937', borderRadius: 24 },
+  bottomSheetContent: { padding: 24 },
+  driverInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  greetingText: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  zoneText: { fontSize: 14, color: '#9ca5b3', marginTop: 4 },
+  earningsBadge: { backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, alignItems: 'center' },
+  earningsLabel: { color: '#10b981', fontSize: 10, fontWeight: 'bold', marginBottom: 2 },
+  earningsValue: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  statBox: { flex: 1, backgroundColor: '#374151', borderRadius: 16, padding: 12, alignItems: 'center', gap: 8 },
+  statBoxValue: { color: '#fff', fontSize: 14, fontWeight: 'bold' }
+});

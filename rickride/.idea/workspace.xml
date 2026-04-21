@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="85ddcb9c-7a19-4177-a82d-3cd0fe0b3568" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../app/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/.vscode/extensions.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/.vscode/settings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/dashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/users.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/login.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/verify.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/dashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/profile.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/book.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/history.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/map.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/profile.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/explore.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/index.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/_layout.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/index.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/app/modal.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-background.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-foreground.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-monochrome.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/favicon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/partial-react-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo@2x.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo@3x.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/assets/images/splash-icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/babel.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/backend.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/MapView.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/MapView.web.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/external-link.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/haptic-tab.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/hello-wave.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/parallax-scroll-view.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/themed-text.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/themed-view.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/ui/collapsible.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/ui/icon-symbol.ios.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/components/ui/icon-symbol.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/constants/theme.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/eslint.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/global.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/hooks/use-color-scheme.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/hooks/use-color-scheme.web.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/hooks/use-theme-color.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/metro.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/nativewind-env.d.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/scripts/reset-project.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/src/services/api.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/src/services/socket.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/src/store/useAuthStore.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/tailwind.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../app/tsconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(admin)/_layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(admin)/_layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(admin)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(admin)/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(auth)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(auth)/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(driver)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(driver)/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(driver)/profile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(driver)/profile.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(passenger)/_layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/_layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(passenger)/activity.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/activity.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/(passenger)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/index.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/adminService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/adminService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="3Cd5v0ummmHCuWlzWGUR783oYHQ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/meetb/Documents/GitHub/RickRide/rickride&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;AndroidSdkUpdater&quot;,
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+  }
+}</component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="85ddcb9c-7a19-4177-a82d-3cd0fe0b3568" name="Changes" comment="" />
+      <created>1776702832204</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1776702832204</updated>
+    </task>
+    <servers />
+  </component>
+</project>

@@ -14,6 +14,7 @@ import { authService } from '../../services/authService';
 import { UserRole } from '../../services/types';
 import { normalizePhone } from '../../utils/phone';
 import { ScrollView } from 'react-native-gesture-handler';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const authModes = ['login', 'register'] as const;
 
@@ -166,6 +167,25 @@ export default function LoginScreen() {
           onPress={handleContinue}
           disabled={submitting || phone.replace(/\D/g, '').length < 10}
         />
+
+        {/* Debugger Mock Login for Admin */}
+        <TouchableOpacity
+          onPress={() => {
+            useAuthStore.getState().setSession('mock_admin_token', {
+              _id: 'mock_admin_id',
+              phone: '+910000000000',
+              role: 'admin',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+            router.replace('/(admin)');
+          }}
+          className="mt-4 rounded-xl border border-dashed border-gray-300 py-3"
+        >
+          <Text className="text-center font-medium text-gray-500">
+            [Debugger] Mock Admin Login
+          </Text>
+        </TouchableOpacity>
     </ScrollView>
       </AuthCard>
     </View>

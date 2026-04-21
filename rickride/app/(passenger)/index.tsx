@@ -1,160 +1,387 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { GooglePlacesAutocomplete } from '../../components/GooglePlacesAutocompleteMock';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { useRouter } from 'expo-router';
 
-import { Button } from '../../components/Button';
-import { EmptyState } from '../../components/EmptyState';
-import { LoadingView } from '../../components/LoadingView';
-import { useAsyncData } from '../../hooks/useAsyncData';
+import MapView, { Marker, Polyline } from '../../components/MapMock';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { driverService } from '../../services/driverService';
-import { tripService } from '../../services/tripService';
-import { Trip } from '../../services/types';
-import { useRideStore } from '../../store/useRideStore';
+import { theme } from '../../constants/theme';
+import { Button } from '../../components/Button';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+const mapCustomStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }
+];
 
 export default function PassengerHome() {
   const router = useRouter();
-  const setSelectedTrip = useRideStore((state) => state.setSelectedTrip);
   const locationState = useDeviceLocation({ autoRequest: true });
+  const mapRef = useRef<any>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
-  const tripsState = useAsyncData(async () => {
-    const response = await tripService.getTrips({ status: 'open', limit: 20 });
-    return response.data;
-  }, []);
+  const [destination, setDestination] = useState<{ latitude: number, longitude: number, title?: string } | null>(null);
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
 
   const nearbyDriversState = useAsyncData(
     async () => {
-      if (!locationState.location) {
-        return [];
-      }
-
+      if (!locationState.location) return [];
       return driverService.getNearbyDrivers(
         locationState.location.longitude,
         locationState.location.latitude,
-        5,
-        6
+        15,
+        10
       );
     },
     [locationState.location?.latitude, locationState.location?.longitude]
   );
 
-  const handleSelectTrip = (trip: Trip) => {
-    setSelectedTrip(trip);
-    router.push({
-      pathname: '/(passenger)/confirmation',
-      params: { tripId: trip._id },
-    });
+  useEffect(() => {
+    if (locationState.location && mapRef.current && !destination) {
+      mapRef.current.animateToRegion({
+        latitude: locationState.location.latitude,
+        longitude: locationState.location.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+    }
+  }, [locationState.location]);
+
+  const centerMap = () => {
+    if (locationState.location && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: locationState.location.latitude,
+        longitude: locationState.location.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+    }
   };
 
-  if (tripsState.loading && !tripsState.data) {
-    return <LoadingView message="Finding available rides..." />;
-  }
+  const handleMapPress = (e: any) => {
+    const coord = e.nativeEvent.coordinate;
+    setDestination({
+      latitude: coord.latitude,
+      longitude: coord.longitude,
+      title: 'Selected Destination'
+    });
+    setSelectedDriver(null);
+  };
+
+  const handleDriverSelect = (driver: any) => {
+    setSelectedDriver(driver);
+    bottomSheetRef.current?.expand();
+  };
 
   return (
-    <SafeAreaView className="bg-backgroundLight flex-1">
-      <ScrollView
-        className="px-4 pt-6"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={tripsState.loading || nearbyDriversState.loading}
-            onRefresh={() => {
-              locationState.refreshLocation().catch(() => undefined);
-              tripsState.reload().catch(() => undefined);
-              nearbyDriversState.reload().catch(() => undefined);
-            }}
-          />
-        }>
-        <View className="mb-6">
-          <Text className="text-sm uppercase tracking-[2px] text-primary">Passenger</Text>
-          <Text className="mt-2 text-3xl font-bold text-surfaceDark">Available rides near you</Text>
-          <Text className="mt-2 text-base text-gray-500">
-            {locationState.location
-              ? `Pickup area: ${locationState.addressLabel || 'Current device location'}`
-              : 'Enable location to discover nearby drivers in your area.'}
-          </Text>
-        </View>
-
-        <View className="mb-6 rounded-3xl bg-white p-5 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-lg font-bold text-surfaceDark">Nearby drivers</Text>
-            <Text className="text-sm text-gray-500">
-              {nearbyDriversState.data?.length || 0} online
-            </Text>
-          </View>
-          <View className="mt-4 gap-3">
-            {locationState.error ? (
-              <Text className="text-sm text-amber-700">{locationState.error}</Text>
-            ) : null}
-            {(nearbyDriversState.data || []).slice(0, 3).map((driver) => (
-              <View
-                key={driver._id}
-                className="bg-backgroundLight flex-row items-center justify-between rounded-2xl px-4 py-3">
-                <View>
-                  <Text className="font-semibold text-surfaceDark">
-                    {driver.userId?.name || 'Driver'}
-                  </Text>
-                  <Text className="text-sm text-gray-500">
-                    {driver.operatingZone || 'Local zone'}
-                  </Text>
-                </View>
-                <Text className="text-sm font-semibold text-primary">{driver.status}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View className="mb-4 flex-row items-center justify-between">
-          <Text className="text-xl font-bold text-surfaceDark">Open trips</Text>
-          <Button
-            title="Refresh"
-            className="w-auto px-4 py-3"
-            onPress={() => {
-              locationState.refreshLocation().catch(() => undefined);
-              tripsState.reload().catch(() => undefined);
-              nearbyDriversState.reload().catch(() => undefined);
-            }}
-          />
-        </View>
-
-        {!tripsState.data?.length ? (
-          <EmptyState
-            title="No trips available"
-            description="Ask a driver to publish a trip first, then pull to refresh."
-            icon={<Ionicons name="map-outline" size={36} color="#099f9f" />}
-          />
-        ) : (
-          <View className="gap-4">
-            {tripsState.data.map((trip) => (
-              <TouchableOpacity
-                key={trip._id}
-                onPress={() => handleSelectTrip(trip)}
-                className="rounded-3xl bg-white p-5 shadow-sm">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-lg font-bold text-surfaceDark">
-                    {trip.driver?.userId?.name || 'Driver'}
-                  </Text>
-                  <Text className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                    {trip.availableSeats}/{trip.totalSeats} seats
-                  </Text>
-                </View>
-                <Text className="mt-2 text-sm text-gray-500">
-                  {trip.driver?.vehicle?.type || 'Vehicle'} | {trip.distance} km
-                </Text>
-                <Text className="mt-3 text-base text-surfaceDark">
-                  INR {trip.pricePerSeat} per seat
-                </Text>
-                <Text className="mt-1 text-sm text-gray-500">
-                  Departure: {trip.departureTime || trip.dipartureTime || 'Not scheduled'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        customMapStyle={mapCustomStyle}
+        initialRegion={locationState.location ? {
+          latitude: locationState.location.latitude,
+          longitude: locationState.location.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        } : undefined}
+        onPress={handleMapPress}
+        showsUserLocation={false} 
+      >
+        {/* Current Location */}
+        {locationState.location && (
+          <Marker coordinate={locationState.location} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.currentLocationDot}>
+              <View style={styles.currentLocationDotInner} />
+            </View>
+          </Marker>
+        )}
+        
+        {/* Destination Location */}
+        {destination && (
+          <Marker coordinate={destination} anchor={{ x: 0.5, y: 1 }}>
+            <Ionicons name="location" size={36} color={theme.colors.primary} />
+          </Marker>
         )}
 
-        <View className="h-10" />
-      </ScrollView>
-    </SafeAreaView>
+        {/* Nearby Drivers */}
+        {nearbyDriversState.data?.map(driver => (
+          <Marker 
+            key={driver._id} 
+            coordinate={{
+              latitude: driver.location?.coordinates?.[1] || 23.02,
+              longitude: driver.location?.coordinates?.[0] || 72.57
+            }}
+            onPress={() => handleDriverSelect(driver)}
+          >
+            <View style={styles.driverMarker}>
+              <Ionicons name="car" size={16} color="#fff" />
+            </View>
+          </Marker>
+        ))}
+
+        {locationState.location && destination && (
+          <Polyline
+            coordinates={[locationState.location, destination]}
+            strokeColor={theme.colors.primary}
+            strokeWidth={4}
+          />
+        )}
+      </MapView>
+
+      <SafeAreaView edges={['top']} style={styles.searchOverlay}>
+        <View style={styles.searchBarContainer}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.searchInputWrapper}>
+            <View style={styles.pickupDot} />
+            <Text style={styles.searchDivider}>Home  → </Text>
+            <GooglePlacesAutocomplete
+              placeholder="Office"
+              fetchDetails={true}
+              onPress={(data, details = null) => {
+                if (details?.geometry?.location) {
+                  const loc = {
+                    latitude: details.geometry.location.lat,
+                    longitude: details.geometry.location.lng,
+                    title: data.structured_formatting.main_text
+                  };
+                  setDestination(loc);
+                  mapRef.current?.animateToRegion({
+                    ...loc,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  });
+                }
+              }}
+              query={{
+                key: GOOGLE_MAPS_API_KEY,
+                language: 'en',
+                components: 'country:in',
+              }}
+              styles={{
+                container: { flex: 1 },
+                textInputContainer: { backgroundColor: 'transparent', height: 40, paddingBottom: 0 },
+                textInput: {
+                  backgroundColor: 'transparent',
+                  color: '#fff',
+                  fontSize: 16,
+                  height: 40,
+                  margin: 0,
+                  padding: 0,
+                },
+                listView: { position: 'absolute', top: 50, zIndex: 10, backgroundColor: '#242f3e' },
+                row: { backgroundColor: '#242f3e' },
+                description: { color: '#fff' }
+              }}
+              textInputProps={{ placeholderTextColor: '#9ca5b3' }}
+            />
+          </View>
+          <TouchableOpacity style={styles.filterButton}>
+            <Ionicons name="options-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      <TouchableOpacity style={styles.fabLocation} onPress={centerMap}>
+        <Ionicons name="locate" size={24} color={theme.colors.primary} />
+      </TouchableOpacity>
+
+      {/* Driver Bottom Sheet */}
+      {selectedDriver && (
+        <BottomSheet
+          ref={bottomSheetRef}
+          snapPoints={['35%']}
+          enablePanDownToClose
+          onClose={() => setSelectedDriver(null)}
+          backgroundStyle={styles.bottomSheetBg}
+          handleIndicatorStyle={{ backgroundColor: '#4a5568' }}
+        >
+          <BottomSheetView style={styles.bottomSheetContent}>
+            <View style={styles.driverHeader}>
+              <View style={styles.driverAvatar}>
+                <Ionicons name="person" size={24} color="#fff" />
+              </View>
+              <View style={styles.driverInfo}>
+                <Text style={styles.driverName}>{selectedDriver.userId?.name || 'Ramesh Kumar'}</Text>
+                <Text style={styles.driverVehicle}>Bajaj RE Compact • 3 min away</Text>
+              </View>
+              <View style={styles.ratingBadge}>
+                <Text style={styles.ratingText}>4.8</Text>
+                <Ionicons name="star" size={12} color="#fbbf24" />
+              </View>
+            </View>
+
+            <View style={styles.tripStatsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>DISTANCE</Text>
+                <Text style={styles.statValue}>2.4 km</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>TIME</Text>
+                <Text style={styles.statValue}>12 min</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statLabel}>SEATS</Text>
+                <Text style={styles.statValue}>3</Text>
+              </View>
+            </View>
+
+            <View style={styles.bookRow}>
+              <View>
+                <Text style={styles.oldPrice}>₹55.00</Text>
+                <Text style={styles.newPrice}>₹45.00</Text>
+              </View>
+              <Button
+                title="Book Auto →"
+                className="w-auto px-8"
+                onPress={() => {
+                   router.push('/(passenger)/confirmation');
+                }}
+              />
+            </View>
+          </BottomSheetView>
+        </BottomSheet>
+      )}
+
+      {/* Default Action Sheet - Nearby Rides */}
+      {!selectedDriver && (
+        <BottomSheet
+          snapPoints={['25%', '45%']}
+          backgroundStyle={styles.bottomSheetBg}
+          handleIndicatorStyle={{ backgroundColor: '#4a5568' }}
+        >
+          <BottomSheetView style={{ padding: 24, flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 16 }}>Available Rides Nearby</Text>
+            
+            {nearbyDriversState.data && nearbyDriversState.data.length > 0 ? (
+              <View style={{ gap: 16 }}>
+                {nearbyDriversState.data.slice(0, 2).map((driver) => (
+                  <TouchableOpacity 
+                    key={driver._id} 
+                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#374151', padding: 16, borderRadius: 16 }}
+                    onPress={() => handleDriverSelect(driver)}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'rgba(0, 212, 255, 0.1)', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="car-sport" size={24} color="#00d4ff" />
+                    </View>
+                    <View style={{ marginLeft: 16, flex: 1 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Auto Rickshaw</Text>
+                      <Text style={{ color: '#9ca5b3', fontSize: 13, marginTop: 2 }}>{driver.userId?.name || 'Local Driver'} • 3 mins away</Text>
+                    </View>
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>₹45</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={{ backgroundColor: '#374151', padding: 20, borderRadius: 16, alignItems: 'center' }}>
+                <Ionicons name="search" size={32} color="#9ca5b3" />
+                <Text style={{ color: '#fff', fontWeight: '600', marginTop: 12 }}>Looking for rides...</Text>
+                <Text style={{ color: '#9ca5b3', fontSize: 13, marginTop: 4 }}>Auto-refreshing your location</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={{ marginTop: 24, backgroundColor: theme.colors.primary, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }}
+              onPress={() => router.push('/(passenger)/activity')}
+            >
+              <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>View All My Bookings</Text>
+            </TouchableOpacity>
+          </BottomSheetView>
+        </BottomSheet>
+      )}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#121212' },
+  currentLocationDot: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0, 212, 255, 0.3)',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  currentLocationDotInner: {
+    width: 10, height: 10, borderRadius: 5, backgroundColor: '#00D4FF'
+  },
+  driverMarker: {
+    width: 32, height: 32, borderRadius: 16, backgroundColor: '#00d4ff',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#1f2937'
+  },
+  searchOverlay: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16 },
+  searchBarContainer: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 12
+  },
+  backButton: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#1f2937',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  filterButton: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#1f2937',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  searchInputWrapper: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1f2937', borderRadius: 22, paddingHorizontal: 16,
+    height: 44
+  },
+  pickupDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00D4FF', marginRight: 8 },
+  searchDivider: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  fabLocation: {
+    position: 'absolute', right: 16, top: 100,
+    width: 50, height: 50, borderRadius: 25, backgroundColor: '#1f2937',
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3
+  },
+  bottomSheetBg: { backgroundColor: '#1f2937', borderRadius: 24 },
+  bottomSheetContent: { padding: 24 },
+  driverHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  driverAvatar: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: '#374151',
+    justifyContent: 'center', alignItems: 'center', marginRight: 16
+  },
+  driverInfo: { flex: 1 },
+  driverName: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  driverVehicle: { fontSize: 14, color: '#9ca5b3', marginTop: 4 },
+  ratingBadge: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#374151',
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4
+  },
+  ratingText: { color: '#fbbf24', fontSize: 12, fontWeight: 'bold' },
+  tripStatsRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#374151', paddingVertical: 16, marginBottom: 20
+  },
+  statItem: { alignItems: 'center', flex: 1 },
+  statLabel: { fontSize: 12, color: '#6b7280', letterSpacing: 1, marginBottom: 4 },
+  statValue: { fontSize: 16, fontWeight: 'bold', color: '#fff' },
+  statDivider: { width: 1, height: 24, backgroundColor: '#374151' },
+  bookRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  oldPrice: { fontSize: 12, color: '#6b7280', textDecorationLine: 'line-through' },
+  newPrice: { fontSize: 24, fontWeight: 'bold', color: '#fff' }
+});

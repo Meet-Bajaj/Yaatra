@@ -7,7 +7,6 @@ const asyncHandler = require("../middlewares/asyncHandler");
 const { getJSON, setJSON } = require("../services/cache.service");
 const { sendSuccess } = require("../utils/apiResponse");
 const AppError = require("../utils/appError");
-const logger = require("../utils/logger");
 
 const adminStats = asyncHandler(async (req, res) => {
   const cacheKey = "admin:stats";
@@ -49,10 +48,6 @@ const deleteUser = asyncHandler(async (req, res) => {
     throw new AppError("User not found", 404);
   }
 
-  if (targetUser.isDeleted) {
-    throw new AppError("User is already deleted", 409);
-  }
-
   if (targetUser.role === "admin") {
     throw new AppError("Admin users cannot be deleted via this endpoint", 403);
   }
@@ -60,13 +55,6 @@ const deleteUser = asyncHandler(async (req, res) => {
   targetUser.isActive = false;
   targetUser.isDeleted = true;
   await targetUser.save();
-
-  logger.info("User soft deleted by admin", {
-    deletedUserId: targetUser._id,
-    deletedByAdminId: req.user._id,
-    role: targetUser.role,
-    phone: targetUser.phone,
-  });
 
   sendSuccess(res, {
     message: "User deleted successfully",

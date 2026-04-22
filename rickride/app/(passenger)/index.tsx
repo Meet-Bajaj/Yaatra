@@ -1,12 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { GooglePlacesAutocomplete } from '../../components/GooglePlacesAutocompleteMock';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useRouter } from 'expo-router';
 
-import MapView, { Marker, Polyline } from '../../components/MapMock';
+const MapViewDirections = Platform.OS === 'web' ? () => null : require('react-native-maps-directions').default;
+
+import MapView, { Marker } from '../../components/MapMock';
 import { useDeviceLocation } from '../../hooks/useDeviceLocation';
 import { useAsyncData } from '../../hooks/useAsyncData';
 import { driverService } from '../../services/driverService';
@@ -42,38 +44,42 @@ export default function PassengerHome() {
   const mapRef = useRef<any>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
 
+  const [pickupLocation, setPickupLocation] = useState<{ latitude: number, longitude: number, title?: string } | null>(null);
   const [destination, setDestination] = useState<{ latitude: number, longitude: number, title?: string } | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number, duration: number } | null>(null);
+
+  const activeOrigin = pickupLocation || locationState.location;
 
   const nearbyDriversState = useAsyncData(
     async () => {
-      if (!locationState.location) return [];
+      if (!activeOrigin) return [];
       return driverService.getNearbyDrivers(
-        locationState.location.longitude,
-        locationState.location.latitude,
+        activeOrigin.longitude,
+        activeOrigin.latitude,
         15,
         10
       );
     },
-    [locationState.location?.latitude, locationState.location?.longitude]
+    [activeOrigin?.latitude, activeOrigin?.longitude]
   );
 
   useEffect(() => {
-    if (locationState.location && mapRef.current && !destination) {
+    if (activeOrigin && mapRef.current && !destination) {
       mapRef.current.animateToRegion({
-        latitude: locationState.location.latitude,
-        longitude: locationState.location.longitude,
+        latitude: activeOrigin.latitude,
+        longitude: activeOrigin.longitude,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       });
     }
-  }, [locationState.location]);
+  }, [activeOrigin]);
 
   const centerMap = () => {
-    if (locationState.location && mapRef.current) {
+    if (activeOrigin && mapRef.current) {
       mapRef.current.animateToRegion({
-        latitude: locationState.location.latitude,
-        longitude: locationState.location.longitude,
+        latitude: activeOrigin.latitude,
+        longitude: activeOrigin.longitude,
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       });
@@ -101,18 +107,18 @@ export default function PassengerHome() {
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         customMapStyle={mapCustomStyle}
-        initialRegion={locationState.location ? {
-          latitude: locationState.location.latitude,
-          longitude: locationState.location.longitude,
+        initialRegion={activeOrigin ? {
+          latitude: activeOrigin.latitude,
+          longitude: activeOrigin.longitude,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         } : undefined}
         onPress={handleMapPress}
         showsUserLocation={false} 
       >
-        {/* Current Location */}
-        {locationState.location && (
-          <Marker coordinate={locationState.location} anchor={{ x: 0.5, y: 0.5 }}>
+        {/* Current / Pickup Location */}
+        {activeOrigin && (
+          <Marker coordinate={activeOrigin} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.currentLocationDot}>
               <View style={styles.currentLocationDotInner} />
             </View>
@@ -142,67 +148,121 @@ export default function PassengerHome() {
           </Marker>
         ))}
 
-        {locationState.location && destination && (
-          <Polyline
-            coordinates={[locationState.location, destination]}
-            strokeColor={theme.colors.primary}
+        {activeOrigin && destination && GOOGLE_MAPS_API_KEY && (
+          <MapViewDirections
+            origin={activeOrigin}
+            destination={destination}
+            apikey={GOOGLE_MAPS_API_KEY}
             strokeWidth={4}
+            strokeColor={theme.colors.primary}
+            onError={(errorMessage) => {
+              console.log('MapViewDirections Error: ', errorMessage);
+            }}
+            onReady={result => {
+              setRouteInfo({
+                distance: result.distance,
+                duration: result.duration
+              });
+              mapRef.current?.fitToCoordinates(result.coordinates, {
+                edgePadding: { top: 100, right: 50, bottom: 100, left: 50 },
+                animated: true
+              });
+            }}
           />
         )}
       </MapView>
 
       <SafeAreaView edges={['top']} style={styles.searchOverlay}>
         <View style={styles.searchBarContainer}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.searchInputWrapper}>
-            <View style={styles.pickupDot} />
-            <Text style={styles.searchDivider}>Home  → </Text>
-            <GooglePlacesAutocomplete
-              placeholder="Office"
-              fetchDetails={true}
-              onPress={(data, details = null) => {
-                if (details?.geometry?.location) {
-                  const loc = {
-                    latitude: details.geometry.location.lat,
-                    longitude: details.geometry.location.lng,
-                    title: data.structured_formatting.main_text
-                  };
-                  setDestination(loc);
-                  mapRef.current?.animateToRegion({
-                    ...loc,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                  });
-                }
-              }}
-              query={{
-                key: GOOGLE_MAPS_API_KEY,
-                language: 'en',
-                components: 'country:in',
-              }}
-              styles={{
-                container: { flex: 1 },
-                textInputContainer: { backgroundColor: 'transparent', height: 40, paddingBottom: 0 },
-                textInput: {
-                  backgroundColor: 'transparent',
-                  color: '#fff',
-                  fontSize: 16,
-                  height: 40,
-                  margin: 0,
-                  padding: 0,
-                },
-                listView: { position: 'absolute', top: 50, zIndex: 10, backgroundColor: '#242f3e' },
-                row: { backgroundColor: '#242f3e' },
-                description: { color: '#fff' }
-              }}
-              textInputProps={{ placeholderTextColor: '#9ca5b3' }}
-            />
+          <View style={styles.searchStack}>
+            <View style={styles.searchInputWrapper}>
+              <View style={[styles.pickupDot, { backgroundColor: '#10b981' }]} />
+              <GooglePlacesAutocomplete
+                placeholder="Current Location (Pickup)"
+                fetchDetails={true}
+                onPress={(data, details = null) => {
+                  if (details?.geometry?.location) {
+                    const loc = {
+                      latitude: details.geometry.location.lat,
+                      longitude: details.geometry.location.lng,
+                      title: data.structured_formatting.main_text
+                    };
+                    setPickupLocation(loc);
+                    mapRef.current?.animateToRegion({
+                      ...loc,
+                      latitudeDelta: 0.05,
+                      longitudeDelta: 0.05,
+                    });
+                  }
+                }}
+                query={{
+                  key: GOOGLE_MAPS_API_KEY,
+                  language: 'en',
+                  components: 'country:in',
+                }}
+                styles={{
+                  container: { flex: 1 },
+                  textInputContainer: { backgroundColor: 'transparent', height: 40, paddingBottom: 0 },
+                  textInput: {
+                    backgroundColor: 'transparent',
+                    color: '#fff',
+                    fontSize: 16,
+                    height: 40,
+                    margin: 0,
+                    padding: 0,
+                  },
+                  listView: { position: 'absolute', top: 50, zIndex: 10, backgroundColor: '#242f3e' },
+                  row: { backgroundColor: '#242f3e' },
+                  description: { color: '#fff' }
+                }}
+                textInputProps={{ placeholderTextColor: '#9ca5b3' }}
+              />
+            </View>
+
+            <View style={[styles.searchInputWrapper, { marginTop: 8 }]}>
+              <View style={[styles.pickupDot, { backgroundColor: theme.colors.primary }]} />
+              <GooglePlacesAutocomplete
+                placeholder="Where to?"
+                fetchDetails={true}
+                onPress={(data, details = null) => {
+                  if (details?.geometry?.location) {
+                    const loc = {
+                      latitude: details.geometry.location.lat,
+                      longitude: details.geometry.location.lng,
+                      title: data.structured_formatting.main_text
+                    };
+                    setDestination(loc);
+                    mapRef.current?.animateToRegion({
+                      ...loc,
+                      latitudeDelta: 0.05,
+                      longitudeDelta: 0.05,
+                    });
+                  }
+                }}
+                query={{
+                  key: GOOGLE_MAPS_API_KEY,
+                  language: 'en',
+                  components: 'country:in',
+                }}
+                styles={{
+                  container: { flex: 1 },
+                  textInputContainer: { backgroundColor: 'transparent', height: 40, paddingBottom: 0 },
+                  textInput: {
+                    backgroundColor: 'transparent',
+                    color: '#fff',
+                    fontSize: 16,
+                    height: 40,
+                    margin: 0,
+                    padding: 0,
+                  },
+                  listView: { position: 'absolute', top: 50, zIndex: 10, backgroundColor: '#242f3e' },
+                  row: { backgroundColor: '#242f3e' },
+                  description: { color: '#fff' }
+                }}
+                textInputProps={{ placeholderTextColor: '#9ca5b3' }}
+              />
+            </View>
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={24} color="#fff" />
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
 
@@ -238,12 +298,12 @@ export default function PassengerHome() {
             <View style={styles.tripStatsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>DISTANCE</Text>
-                <Text style={styles.statValue}>2.4 km</Text>
+                <Text style={styles.statValue}>{routeInfo?.distance ? `${routeInfo.distance.toFixed(1)} km` : '...'}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>TIME</Text>
-                <Text style={styles.statValue}>12 min</Text>
+                <Text style={styles.statValue}>{routeInfo?.duration ? `${Math.ceil(routeInfo.duration)} min` : '...'}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
@@ -254,8 +314,8 @@ export default function PassengerHome() {
 
             <View style={styles.bookRow}>
               <View>
-                <Text style={styles.oldPrice}>₹55.00</Text>
-                <Text style={styles.newPrice}>₹45.00</Text>
+                <Text style={styles.oldPrice}>₹{(Math.ceil(routeInfo?.distance || 5) * 15) + 15}.00</Text>
+                <Text style={styles.newPrice}>₹{Math.ceil(routeInfo?.distance || 5) * 15}.00</Text>
               </View>
               <Button
                 title="Book Auto →"
@@ -294,7 +354,7 @@ export default function PassengerHome() {
                       <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Auto Rickshaw</Text>
                       <Text style={{ color: '#9ca5b3', fontSize: 13, marginTop: 2 }}>{driver.userId?.name || 'Local Driver'} • 3 mins away</Text>
                     </View>
-                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>₹45</Text>
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>₹{Math.ceil(routeInfo?.distance || 5) * 15}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -337,23 +397,15 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 12
   },
-  backButton: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#1f2937',
-    justifyContent: 'center', alignItems: 'center'
-  },
-  filterButton: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#1f2937',
-    justifyContent: 'center', alignItems: 'center'
-  },
+  searchStack: { flex: 1 },
   searchInputWrapper: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1f2937', borderRadius: 22, paddingHorizontal: 16,
     height: 44
   },
-  pickupDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00D4FF', marginRight: 8 },
-  searchDivider: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  pickupDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   fabLocation: {
-    position: 'absolute', right: 16, top: 100,
+    position: 'absolute', right: 16, top: 130,
     width: 50, height: 50, borderRadius: 25, backgroundColor: '#1f2937',
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3

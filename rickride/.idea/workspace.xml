@@ -5,82 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="85ddcb9c-7a19-4177-a82d-3cd0fe0b3568" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../app/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/.vscode/extensions.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/.vscode/settings.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/dashboard.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(admin)/users.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/login.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(auth)/verify.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/dashboard.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(driver)/profile.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/book.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/history.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/map.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(rider)/profile.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/explore.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/(tabs)/index.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/_layout.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/index.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/app/modal.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-background.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-foreground.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/android-icon-monochrome.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/favicon.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/icon.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/partial-react-logo.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo@2x.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/react-logo@3x.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/assets/images/splash-icon.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/babel.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/backend.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/MapView.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/MapView.web.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/external-link.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/haptic-tab.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/hello-wave.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/parallax-scroll-view.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/themed-text.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/themed-view.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/ui/collapsible.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/ui/icon-symbol.ios.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/components/ui/icon-symbol.tsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/constants/theme.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/eslint.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/global.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/hooks/use-color-scheme.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/hooks/use-color-scheme.web.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/hooks/use-theme-color.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/metro.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/nativewind-env.d.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/package-lock.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/package.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/scripts/reset-project.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/src/services/api.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/src/services/socket.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/src/store/useAuthStore.ts" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/tailwind.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../app/tsconfig.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(admin)/_layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(admin)/_layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(admin)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(admin)/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(auth)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(auth)/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(driver)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(driver)/index.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(driver)/profile.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(driver)/profile.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(passenger)/_layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/_layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/(passenger)/activity.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/activity.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/(passenger)/index.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/(passenger)/index.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/adminService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/services/adminService.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

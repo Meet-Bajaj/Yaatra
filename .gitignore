@@ -1,8 +1,0 @@
-node_modules
-.env
-.md
-backend/Suggestion.md
-backend/test
-backend/GUIDE.md
-
-frontend

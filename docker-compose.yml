@@ -26,7 +26,7 @@ services:
       - redis_global_data:/data
 
   minio:
-    image: minio/minio:RELEASE.2024-03-07T09-43-48Z
+    image: minio/minio:latest
     container_name: global-minio
     restart: always
     environment:

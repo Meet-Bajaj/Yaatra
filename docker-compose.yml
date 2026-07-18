@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Everything is bundled here. Run it once and leave it running.
+  postgres:
+    image: postgres:16-alpine
+    container_name: global-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: SuperSecurePassword123!
+      POSTGRES_DB: main_admin
+    ports:
+      - "5432:5432" # Binds to your machine's physical port 5432
+    volumes:
+      - pg_global_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: global-redis
+    restart: always
+    command: redis-server --requirepass AnotherSuperSecurePassword456!
+    ports:
+      - "6379:6379" # Binds to your machine's physical port 6379
+    volumes:
+      - redis_global_data:/data
+
+  minio:
+    image: minio/minio:RELEASE.2024-03-07T09-43-48Z
+    container_name: global-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: MinioSecurePassword789!
+    ports:
+      - "9000:9000" # API port
+      - "9001:9001" # Web Dashboard port
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_global_data:/data
+
+volumes:
+  pg_global_data:
+  redis_global_data:
+  minio_global_data:

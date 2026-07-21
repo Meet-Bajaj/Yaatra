@@ -9,6 +9,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url = "postgresql://admin:SuperSecurePassword123!@localhost:5432/yaatri"
+
 }
 
 

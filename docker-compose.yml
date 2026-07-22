@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Everything is bundled here. Run it once and leave it running.
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4-alpine
     container_name: global-postgres
     restart: always
     environment:

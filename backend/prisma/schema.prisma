@@ -1,52 +1,398 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url = "postgresql://admin:SuperSecurePassword123!@localhost:5432/yaatri"
-
+  provider   = "postgresql"
+  // url        = env("DATABASE_URL")
 }
 
-
-model User {
-  id        String   @id @default(cuid())
-  name      String?
-  email     String   @unique
-  phone     String   @unique
-  role      UserRole @default(RIDER) 
-  reviews   Review[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// model Onboarding {
-//   id        String   @id @default(cuid())
-//   user      User     @relation(fields: [userId], references: [id])
-//   userId    String
-//   step      Int
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-model Review{
-  id        String   @id @default(cuid())
-  rating    Int
-  comment   String?
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
+//
+// ENUMS
+//
 
 enum UserRole {
   RIDER
   DRIVER
+  BOTH
   ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum VerificationStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum RideStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum RideInstanceStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  REFUNDED
+  FAILED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum PaymentType {
+  AUTH
+  CAPTURE
+  REFUND
+}
+
+enum TransactionStatus {
+  SUCCEEDED
+  FAILED
+  PENDING
+}
+
+enum WalletTxnType {
+  TOPUP
+  DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum KycDocumentType {
+  AADHAAR
+  DRIVING_LICENSE
+  PAN
+}
+
+//
+// USERS
+//
+
+model User {
+  id          String      @id @default(uuid()) @map("user_id")
+  phone       String      @unique
+  name        String
+  email       String?     @unique
+  role        UserRole
+  status      UserStatus  @default(ACTIVE)
+
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  driverProfile DriverProfile?
+
+  bookings      Booking[]
+  wallet        Wallet?
+
+  ratingsGiven     Rating[] @relation("Reviewer")
+  ratingsReceived  Rating[] @relation("Reviewee")
+
+  notifications Notification[]
+  kycDocuments  KycDocument[]
+
+  @@map("users")
+}
+
+//
+// DRIVER PROFILE
+//
+
+model DriverProfile {
+  driverId String @id @map("driver_id")
+
+  verificationStatus VerificationStatus @default(PENDING)
+
+  totalRating Decimal @default(0) @db.Decimal(3,2)
+  ratingCount Int @default(0)
+
+  badges Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [driverId], references: [id])
+
+  vehicles Vehicles[]
+  recurringRides RecurringRide[]
+
+  @@map("driver_profiles")
+}
+
+//
+// VEHICLES
+//
+
+model Vehicles {
+  id String @id @default(uuid()) @map("vehicle_id")
+
+  driverId String
+
+  make String
+  model String
+
+  licensePlate String @unique @map("license_plate")
+
+  capacity Int
+
+  verificationStatus VerificationStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  driver DriverProfile @relation(fields: [driverId], references: [driverId])
+
+  rides RecurringRide[]
+
+  @@map("vehicles")
+}
+
+//
+// RECURRING RIDES
+//
+
+model RecurringRide {
+  id String @id @default(uuid()) @map("ride_id")
+
+  driverId String
+  vehicleId String
+
+  route Unsupported("geography(LINESTRING,4326)")
+
+  schedule Json
+
+  pricePerSeat Decimal @db.Decimal(10,2)
+
+  maxPassengers Int
+
+  womenOnly Boolean @default(false)
+
+  status RideStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  driver DriverProfile @relation(fields: [driverId], references: [driverId])
+
+  vehicle Vehicles @relation(fields: [vehicleId], references: [id])
+
+  instances RideInstance[]
+
+  @@map("recurring_rides")
+}
+
+//
+// RIDE INSTANCES
+//
+
+model RideInstance {
+  id String @id @default(uuid()) @map("instance_id")
+
+  rideId String
+
+  date DateTime @db.Date
+
+  departureTime DateTime @db.Time(0)
+
+  status RideInstanceStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ride RecurringRide @relation(fields: [rideId], references: [id])
+
+  bookings Booking[]
+
+  ratings Rating[]
+
+  @@map("ride_instances")
+}
+
+//
+// BOOKINGS
+//
+
+model Booking {
+  id String @id @default(uuid()) @map("booking_id")
+
+  instanceId String
+  riderId String
+
+  seatCount Int
+
+  fareTotal Decimal @db.Decimal(10,2)
+
+  commission Decimal @db.Decimal(10,2)
+
+  paymentStatus PaymentStatus
+
+  bookingStatus BookingStatus
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  instance RideInstance @relation(fields: [instanceId], references: [id])
+
+  rider User @relation(fields: [riderId], references: [id])
+
+  payments Payment[]
+
+  @@map("bookings")
+}
+
+//
+// PAYMENTS
+//
+
+model Payment {
+  id String @id @default(uuid()) @map("payment_id")
+
+  bookingId String
+
+  providerTransactionId String? @map("provider_transaction_id")
+
+  amount Decimal @db.Decimal(10,2)
+
+  type PaymentType
+
+  status TransactionStatus
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("payments")
+}
+
+//
+// WALLET
+//
+
+model Wallet {
+  id String @id @default(uuid()) @map("wallet_id")
+
+  userId String @unique
+
+  balance Decimal @default(0) @db.Decimal(12,2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+//
+// WALLET TRANSACTIONS
+//
+
+model WalletTransaction {
+  id String @id @default(uuid()) @map("txn_id")
+
+  walletId String
+
+  amount Decimal @db.Decimal(10,2)
+
+  type WalletTxnType
+
+  referenceId String? @map("reference_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+//
+// RATINGS
+//
+
+model Rating {
+  id String @id @default(uuid()) @map("rating_id")
+
+  reviewerId String
+  revieweeId String
+  rideInstanceId String
+
+  score Int
+
+  comment String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  reviewer User @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  reviewee User @relation("Reviewee", fields: [revieweeId], references: [id])
+
+  rideInstance RideInstance @relation(fields: [rideInstanceId], references: [id])
+
+  @@map("ratings")
+}
+
+//
+// NOTIFICATIONS
+//
+
+model Notification {
+  id String @id @default(uuid()) @map("notif_id")
+
+  userId String
+
+  type String
+
+  payload Json
+
+  readAt DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+//
+// KYC DOCUMENTS
+//
+
+model KycDocument {
+  id String @id @default(uuid()) @map("doc_id")
+
+  userId String
+
+  type KycDocumentType
+
+  s3Key String @map("s3_key")
+
+  status VerificationStatus @default(PENDING)
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  verifiedAt DateTime? @map("verified_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("kyc_documents")
 }

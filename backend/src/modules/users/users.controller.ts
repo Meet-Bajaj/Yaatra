@@ -33,3 +33,11 @@ export class UsersController {
     return this.usersService.remove(id);
   }
 }
+@Controller('users/booking')
+export class BookingController{
+  
+}
+@Controller('users/documents')
+export class DocumentsController{
+  
+}

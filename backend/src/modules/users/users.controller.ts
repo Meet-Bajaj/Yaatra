@@ -27,7 +27,7 @@ export class UsersController {
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
-
+ 
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
@@ -39,5 +39,9 @@ export class BookingController{
 }
 @Controller('users/documents')
 export class DocumentsController{
+  @Get()
+  findOne(){
+    return   1
+  }
   
 }

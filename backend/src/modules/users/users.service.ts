@@ -15,7 +15,7 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
-     return await this.prisma.user.findMany({
+    return await this.prisma.user.findMany({
       include: {
         driverProfile: true,
         wallet: true,
@@ -24,17 +24,17 @@ export class UsersService {
         createdAt: 'desc',
       },
     });
-  //     try {
-  //   const users = await this.prisma.user.findMany();
+    //     try {
+    //   const users = await this.prisma.user.findMany();
 
-  //   console.log(users);
+    //   console.log(users);
 
-  //   return users;
+    //   return users;
 
-  // } catch (error) {
-  //   console.error(error);
-  //   throw error;
-  // }
+    // } catch (error) {
+    //   console.error(error);
+    //   throw error;
+    // }
   }
 
   findOne(id: string) {
@@ -52,8 +52,7 @@ export class UsersService {
         kycDocuments: true,
       },
     });
-    if(!user)
-      throw new NotFoundException(`User with UserID ${id} not found.`);
+    if (!user) throw new NotFoundException(`User with UserID ${id} not found.`);
     return user;
   }
 

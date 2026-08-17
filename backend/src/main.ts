@@ -7,7 +7,7 @@ async function bootstrap() {
     .setDescription("Yaatra's Description")
     .setVersion('1.0')
     .build();
-    
+
   const app = await NestFactory.create(AppModule);
   const document = SwaggerModule.createDocument(app, config);
 

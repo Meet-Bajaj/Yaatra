@@ -6,9 +6,16 @@ import { AuthModule } from './auth/auth.module';
 import { RatingModule } from './modules/rating/rating.module';
 import { NotificationModule } from './modules/notification/notification.module';
 @Module({
-  imports: [ConfigModule.forRoot({
-    isGlobal: true,
-  }), PrismaModule, UsersModule, AuthModule, RatingModule, NotificationModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    PrismaModule,
+    UsersModule,
+    AuthModule,
+    RatingModule,
+    NotificationModule,
+  ],
   controllers: [],
   providers: [],
 })

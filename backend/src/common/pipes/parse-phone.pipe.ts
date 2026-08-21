@@ -8,7 +8,7 @@ export class ParsePhonePipe implements PipeTransform<string> {
     }
 
     // Strip spaces, dashes, parentheses
-    const cleaned = value.replace(/[\s\-\(\)]/g, '');
+    const cleaned = value.replace(/[\s\-()]/g, '');
 
     // Must start with + and contain only digits after
     if (!/^\+\d{10,15}$/.test(cleaned)) {

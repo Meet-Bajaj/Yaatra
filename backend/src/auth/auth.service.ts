@@ -77,7 +77,6 @@ export class AuthService {
       throw new ForbiddenException('Account is not active');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     const payload = { sub: user.id, phone: user.phone, role: user.role };

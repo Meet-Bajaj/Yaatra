@@ -4,7 +4,8 @@ export default () => ({
     url: process.env.DATABASE_URL,
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'yaatra-jwt-secret-2024-change-in-production',
+    secret:
+      process.env.JWT_SECRET || 'yaatra-jwt-secret-2024-change-in-production',
     expiresIn: '7d',
   },
   redis: {

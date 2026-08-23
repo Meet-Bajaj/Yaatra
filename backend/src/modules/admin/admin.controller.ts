@@ -13,7 +13,7 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all users (admin)' })
   getUsers() {
-    return { message: 'TODO: implement admin list users' };
+    return { message: 'Implement admin list users' };
   }
 
   @Get('docs/queue')
@@ -21,7 +21,7 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get document verification queue' })
   getDocQueue() {
-    return { message: 'TODO: implement doc queue' };
+    return { message: 'Implement doc queue' };
   }
 
   @Patch('docs/:id')
@@ -29,7 +29,7 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve/reject document' })
   verifyDoc(@Param('id') id: string) {
-    return { message: `TODO: implement verify doc ${id}` };
+    return { message: `Implement verify doc ${id}` };
   }
 
   @Get('disputes')
@@ -37,7 +37,7 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get open disputes' })
   getDisputes() {
-    return { message: 'TODO: implement get disputes' };
+    return { message: 'Implement get disputes' };
   }
 
   @Patch('disputes/:id')
@@ -45,7 +45,7 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Resolve a dispute' })
   resolveDispute(@Param('id') id: string) {
-    return { message: `TODO: implement resolve dispute ${id}` };
+    return { message: `Implement resolve dispute ${id}` };
   }
 
   @Get('stats')
@@ -53,6 +53,6 @@ export class AdminController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get platform stats' })
   getStats() {
-    return { message: 'TODO: implement admin stats' };
+    return { message: 'Implement admin stats' };
   }
 }

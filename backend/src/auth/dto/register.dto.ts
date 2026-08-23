@@ -14,12 +14,12 @@ export class RegisterDto {
   @ApiProperty({ example: '+919876543210' })
   @IsString()
   @IsNotEmpty()
-  phone: string;
+  phone!: string;
 
   @ApiProperty({ example: 'John Doe' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiProperty({ example: 'john@example.com', required: false })
   @IsOptional()
@@ -36,9 +36,9 @@ export class RegisterDto {
         'Password must contain at least one uppercase, one lowercase, one number and one special character',
     },
   )
-  password: string;
+  password!: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.RIDER })
   @IsEnum(UserRole)
-  role: UserRole;
+  role!: UserRole;
 }

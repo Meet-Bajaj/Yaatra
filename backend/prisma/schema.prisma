@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  // url        = env("DATABASE_URL")
+  // url is configured in prisma.config.ts
 }
 
 //
@@ -96,11 +96,18 @@ model User {
   role        UserRole
   status      UserStatus  @default(ACTIVE)
 
+  gender      String?
+  city        String?
+  avatarUrl   String?     @map("avatar_url")
+  emergencyContacts Json? @map("emergency_contacts")
+  referralCode String?   @unique @map("referral_code")
+
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   driverProfile DriverProfile?
 
+  savedPlaces  SavedPlace[]
   bookings      Booking[]
   wallet        Wallet?
 
@@ -396,4 +403,23 @@ model KycDocument {
   user User @relation(fields: [userId], references: [id])
 
   @@map("kyc_documents")
+}
+
+//
+// SAVED PLACES
+//
+
+model SavedPlace {
+  id        String @id @default(uuid()) @map("place_id")
+  userId    String
+  label     String
+  name      String
+  address   String
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("saved_places")
 }

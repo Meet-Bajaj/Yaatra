@@ -22,10 +22,13 @@ export default () => ({
   firebase: {
     serverKey: process.env.FCM_SERVER_KEY,
   },
-  aws: {
-    s3Bucket: process.env.AWS_S3_BUCKET,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  minio: {
+    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
+    port: parseInt(process.env.MINIO_PORT || '9000', 10),
+    accessKey: process.env.MINIO_ACCESS_KEY || 'minioadmin',
+    secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
+    bucket: process.env.MINIO_BUCKET || 'yaatra-documents',
+    useSSL: process.env.MINIO_USE_SSL === 'true',
   },
   googleMaps: {
     apiKey: process.env.GOOGLE_MAPS_API_KEY,

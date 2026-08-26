@@ -8,18 +8,13 @@ import {
   Param,
   Delete,
   UseGuards,
-  Query,
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { EmergencyContactsDto } from './dto/emergency-contacts.dto';
 import { CreateSavedPlaceDto } from './dto/create-saved-place.dto';
@@ -36,34 +31,7 @@ interface AuthRequest {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // ─── User CRUD ──────────────────────────────────────────────────
-
-  @Post()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a user' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
-  }
-
-  @Get()
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all users (admin)' })
-  @ApiQuery({ name: 'skip', required: false })
-  @ApiQuery({ name: 'take', required: false })
-  @ApiQuery({ name: 'search', required: false })
-  findAll(
-    @Query('skip') skip?: string,
-    @Query('take') take?: string,
-    @Query('search') search?: string,
-  ) {
-    return this.usersService.findAll({
-      skip: skip ? parseInt(skip, 10) : undefined,
-      take: take ? parseInt(take, 10) : undefined,
-      search,
-    });
-  }
+  // ─── Current User Profile ──────────────────────────────────────
 
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
@@ -71,14 +39,6 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user profile' })
   getMe(@Req() req: AuthRequest) {
     return this.usersService.getMe(req.user.userId);
-  }
-
-  @Get(':id')
-  @UseGuards(AuthGuard('jwt'))
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get user by ID' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
   }
 
   @Patch('me')
@@ -92,18 +52,39 @@ export class UsersController {
     return this.usersService.updateProfile(req.user.userId, updateProfileDto);
   }
 
-  @Patch(':id')
+  @Delete('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update user by ID' })
+  @ApiOperation({ summary: 'Soft-delete own account' })
+  removeMe(@Req() req: AuthRequest) {
+    return this.usersService.softDelete(req.user.userId);
+  }
+
+  // ─── Admin-only User Management ────────────────────────────────
+
+  @Get(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user by ID (admin)' })
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user by ID (admin)' })
   update(@Param('id') id: string, @Body() updateUserDto: UpdateProfileDto) {
     return this.usersService.updateProfile(id, updateUserDto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Soft-delete a user' })
+  @ApiOperation({ summary: 'Soft-delete user (admin)' })
   remove(@Param('id') id: string) {
     return this.usersService.softDelete(id);
   }

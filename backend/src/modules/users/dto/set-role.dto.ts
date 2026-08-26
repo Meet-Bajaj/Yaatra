@@ -3,10 +3,10 @@ import { IsEnum } from 'class-validator';
 
 export enum UserRole {
   RIDER = 'RIDER',
+  DRIVER = 'DRIVER',
   CARPOOL = 'CARPOOL',
   PROFESSIONAL = 'PROFESSIONAL',
   BOTH = 'BOTH',
-  ADMIN = 'ADMIN',
 }
 
 export class SetRoleDto {

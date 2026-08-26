@@ -14,6 +14,8 @@ datasource db {
 enum UserRole {
   RIDER
   DRIVER
+  CARPOOL
+  PROFESSIONAL
   BOTH
   ADMIN
 }
@@ -22,6 +24,12 @@ enum UserStatus {
   ACTIVE
   SUSPENDED
   DELETED
+}
+
+enum DriverType {
+  CARPOOL
+  PROFESSIONAL
+  BOTH
 }
 
 enum VerificationStatus {
@@ -40,6 +48,15 @@ enum RideInstanceStatus {
   SCHEDULED
   CANCELLED
   COMPLETED
+}
+
+enum TripStatus {
+  SEARCHING
+  DRIVER_ASSIGNED
+  ARRIVING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum PaymentStatus {
@@ -83,6 +100,30 @@ enum KycDocumentType {
   PAN
 }
 
+enum OtpPurpose {
+  LOGIN
+  VERIFY_DOC
+  RESET
+}
+
+//
+// OTP
+//
+
+model Otp {
+  id        String   @id @default(uuid()) @map("otp_id")
+  phone     String
+  code      String
+  purpose   OtpPurpose @default(LOGIN)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, purpose])
+  @@map("otps")
+}
+
 //
 // USERS
 //
@@ -117,6 +158,11 @@ model User {
   notifications Notification[]
   kycDocuments  KycDocument[]
 
+  tripsAsRider   Trip[] @relation("RiderTrips")
+  tripsAsDriver  Trip[] @relation("DriverTrips")
+
+  emergencyAlerts EmergencyAlert[]
+
   @@map("users")
 }
 
@@ -126,6 +172,12 @@ model User {
 
 model DriverProfile {
   driverId String @id @map("driver_id")
+
+  driverType       DriverType @default(CARPOOL)
+  isOnline         Boolean    @default(false)
+  currentLat       Float?
+  currentLng       Float?
+  currentZone      String?
 
   verificationStatus VerificationStatus @default(PENDING)
 
@@ -156,10 +208,15 @@ model Vehicles {
 
   make String
   model String
+  color String?
 
   licensePlate String @unique @map("license_plate")
 
   capacity Int
+
+  isCommercial Boolean @default(false)
+  fitnessCertUrl String? @map("fitness_cert_url")
+  permitUrl String? @map("permit_url")
 
   verificationStatus VerificationStatus @default(PENDING)
 
@@ -235,6 +292,65 @@ model RideInstance {
 }
 
 //
+// TRIPS (on-demand rides)
+//
+
+model Trip {
+  id        String   @id @default(uuid()) @map("trip_id")
+  riderId   String
+  driverId  String?
+  status    TripStatus @default(SEARCHING)
+
+  pickupLat Float
+  pickupLng Float
+  dropLat   Float
+  dropLng   Float
+  pickupAddress String
+  dropAddress   String
+
+  fareEstimate Decimal @db.Decimal(10,2)
+  fareFinal    Decimal? @db.Decimal(10,2)
+  distanceKm   Float?
+  durationMin  Int?
+
+  pickupTime DateTime?
+  startTime  DateTime?
+  endTime    DateTime?
+
+  surgeMultiplier Float? @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rider  User @relation("RiderTrips", fields: [riderId], references: [id])
+  driver User? @relation("DriverTrips", fields: [driverId], references: [id])
+
+  payments    Payment[]
+  locations   TripLocation[]
+  ratings     Rating[]
+
+  @@map("trips")
+}
+
+//
+// TRIP LOCATIONS (live tracking history)
+//
+
+model TripLocation {
+  id       String @id @default(uuid()) @map("loc_id")
+  tripId   String
+  lat      Float
+  lng      Float
+  speedKmh Float?
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, recordedAt])
+  @@map("trip_locations")
+}
+
+//
 // BOOKINGS
 //
 
@@ -273,7 +389,8 @@ model Booking {
 model Payment {
   id String @id @default(uuid()) @map("payment_id")
 
-  bookingId String
+  bookingId String?
+  tripId    String?
 
   providerTransactionId String? @map("provider_transaction_id")
 
@@ -285,9 +402,28 @@ model Payment {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  trip    Trip?    @relation(fields: [tripId], references: [id])
 
   @@map("payments")
+}
+
+//
+// DISPUTES
+//
+
+model Dispute {
+  id        String @id @default(uuid()) @map("dispute_id")
+  bookingId String
+  raisedBy  String
+  reason    String
+  status    String @default("OPEN") // OPEN / RESOLVED / DISMISSED
+  resolution String?
+  refundAmount Decimal? @db.Decimal(10,2)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("disputes")
 }
 
 //
@@ -342,11 +478,13 @@ model Rating {
 
   reviewerId String
   revieweeId String
-  rideInstanceId String
+  rideInstanceId String?
+  tripId String?
 
   score Int
 
   comment String?
+  tags Json?
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -354,7 +492,8 @@ model Rating {
 
   reviewee User @relation("Reviewee", fields: [revieweeId], references: [id])
 
-  rideInstance RideInstance @relation(fields: [rideInstanceId], references: [id])
+  rideInstance RideInstance? @relation(fields: [rideInstanceId], references: [id])
+  trip         Trip?         @relation(fields: [tripId], references: [id])
 
   @@map("ratings")
 }
@@ -396,6 +535,8 @@ model KycDocument {
 
   status VerificationStatus @default(PENDING)
 
+  rejectionReason String? @map("rejection_reason")
+
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
   verifiedAt DateTime? @map("verified_at")
@@ -422,4 +563,22 @@ model SavedPlace {
   user User @relation(fields: [userId], references: [id])
 
   @@map("saved_places")
+}
+
+//
+// EMERGENCY ALERTS
+//
+
+model EmergencyAlert {
+  id     String @id @default(uuid()) @map("alert_id")
+  userId String
+  tripId String?
+  lat    Float
+  lng    Float
+  status String @default("OPEN") // OPEN / RESOLVED
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("emergency_alerts")
 }

@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -13,11 +15,11 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { SafetyModule } from './modules/safety/safety.module';
 import { KycModule } from './modules/kyc/kyc.module';
-import { PlacesModule } from './modules/places/places.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { LocationModule } from './modules/location/location.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import configuration from './config/configuration';
 
 @Module({
@@ -26,6 +28,13 @@ import configuration from './config/configuration';
       isGlobal: true,
       load: [configuration],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
+    ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,
     AuthModule,
@@ -39,11 +48,14 @@ import configuration from './config/configuration';
     WalletModule,
     SafetyModule,
     KycModule,
-    PlacesModule,
     AdminModule,
     LocationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+  }
+}

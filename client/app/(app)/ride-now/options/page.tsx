@@ -3,64 +3,65 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Star, Users, Clock, Fuel } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
 import { useRideSearchStore } from "@/stores/rideSearchStore";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Badge } from "@/components/ui/badge";
 import { RatingBar } from "@/components/ui/rating-bar";
-import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn, formatINR } from "@/lib/utils";
 
-const mockRides = [
-  {
-    id: "1",
-    driverName: "Arjun K.",
-    driverRating: 4.8,
-    vehicle: "Swift Dzire - White",
-    type: "carpool",
-    pickup: "Koramangala",
-    dropoff: "Electronic City",
-    eta: 8,
-    fare: 120,
-    seats: 2,
-    departure: "9:00 AM",
-  },
-  {
-    id: "2",
-    driverName: "Priya M.",
-    driverRating: 4.9,
-    vehicle: "Honda City - Silver",
-    type: "professional",
-    pickup: "Koramangala",
-    dropoff: "Electronic City",
-    eta: 5,
-    fare: 250,
-    seats: 4,
-    departure: "Now",
-  },
-  {
-    id: "3",
-    driverName: "Rahul S.",
-    driverRating: 4.6,
-    vehicle: "Toyota Innova - Black",
-    type: "carpool",
-    pickup: "HSR Layout",
-    dropoff: "Electronic City",
-    eta: 12,
-    fare: 100,
-    seats: 3,
-    departure: "9:30 AM",
-  },
-];
+interface RideOption {
+  id: string;
+  driverName: string;
+  driverRating: number;
+  vehicle: string;
+  type: string;
+  pickup: string;
+  dropoff: string;
+  eta: number;
+  fare: number;
+  seats: number;
+  departure: string;
+}
 
 export default function RideOptionsPage() {
   const router = useRouter();
   const { pickup, dropoff, filters, setFilters } = useRideSearchStore();
   const [selectedRide, setSelectedRide] = useState<string | null>(null);
 
-  const filteredRides = mockRides.filter((ride) => {
+  const { data: rides = [], isLoading } = useQuery({
+    queryKey: ["rides-available", pickup?.address, dropoff?.address, filters],
+    queryFn: async () => {
+      try {
+        const params = new URLSearchParams();
+        if (pickup) {
+          params.set("pickupLat", String(pickup.lat));
+          params.set("pickupLng", String(pickup.lng));
+          params.set("pickupAddress", pickup.address);
+        }
+        if (dropoff) {
+          params.set("dropoffLat", String(dropoff.lat));
+          params.set("dropoffLng", String(dropoff.lng));
+          params.set("dropoffAddress", dropoff.address);
+        }
+        if (filters.type !== "all") params.set("type", filters.type);
+        if (filters.womenOnly) params.set("womenOnly", "true");
+        params.set("sortBy", filters.sortBy);
+        const res = await api.get(`${API.rides.available}?${params.toString()}`);
+        return (Array.isArray(res.data) ? res.data : []) as RideOption[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const filteredRides = rides.filter((ride) => {
     if (filters.type === "carpool" && ride.type !== "carpool") return false;
     if (filters.type === "professional" && ride.type !== "professional") return false;
-    if (filters.womenOnly) return false;
     return true;
   });
 
@@ -99,65 +100,76 @@ export default function RideOptionsPage() {
         </Chip>
       </div>
 
-      <div className="space-y-3">
-        {filteredRides.map((ride) => (
-          <div
-            key={ride.id}
-            className={cn(
-              "rounded-2xl border bg-[#0a0a0a] p-4 transition-all duration-200",
-              selectedRide === ride.id
-                ? "border-white bg-white/5"
-                : "border-white/10 hover:border-white/20"
-            )}
-          >
-            <div className="mb-3 flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
-                  {ride.driverName[0]}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">{ride.driverName}</p>
-                  <div className="flex items-center gap-1">
-                    <RatingBar value={Math.round(ride.driverRating)} size="sm" />
-                    <span className="text-xs text-white/50">{ride.driverRating}</span>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/5" />
+          ))}
+        </div>
+      ) : filteredRides.length > 0 ? (
+        <div className="space-y-3">
+          {filteredRides.map((ride) => (
+            <div
+              key={ride.id}
+              className={cn(
+                "rounded-2xl border bg-[#0a0a0a] p-4 transition-all duration-200",
+                selectedRide === ride.id
+                  ? "border-white bg-white/5"
+                  : "border-white/10 hover:border-white/20"
+              )}
+            >
+              <div className="mb-3 flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+                    {ride.driverName?.[0] || "?"}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{ride.driverName}</p>
+                    <div className="flex items-center gap-1">
+                      <RatingBar value={Math.round(ride.driverRating || 0)} size="sm" />
+                      <span className="text-xs text-white/50">{ride.driverRating}</span>
+                    </div>
                   </div>
                 </div>
+                <Badge variant={ride.type === "carpool" ? "carpool" : "pro"}>
+                  {ride.type === "carpool" ? "Carpool" : "Pro"}
+                </Badge>
               </div>
-              <Badge variant={ride.type === "carpool" ? "carpool" : "pro"}>
-                {ride.type === "carpool" ? "Carpool" : "Pro"}
-              </Badge>
+
+              {ride.vehicle && (
+                <p className="mb-3 text-xs text-white/40">{ride.vehicle}</p>
+              )}
+
+              <div className="mb-4 flex items-center gap-4 text-xs text-white/50">
+                {ride.eta != null && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {ride.eta} min
+                  </span>
+                )}
+                {ride.seats != null && <span>{ride.seats} seats left</span>}
+                {ride.departure && <span>{ride.departure}</span>}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-bold text-white">{formatINR(ride.fare)}</p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setSelectedRide(ride.id);
+                    router.push("/ride-now/confirm");
+                  }}
+                >
+                  Book Now
+                </Button>
+              </div>
             </div>
-
-            <p className="mb-3 text-xs text-white/40">{ride.vehicle}</p>
-
-            <div className="mb-4 flex items-center gap-4 text-xs text-white/50">
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" /> {ride.eta} min
-              </span>
-              <span>{ride.seats} seats left</span>
-              <span>{ride.departure}</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <p className="text-lg font-bold text-white">₹{ride.fare}</p>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setSelectedRide(ride.id);
-                  router.push("/ride-now/confirm");
-                }}
-              >
-                Book Now
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredRides.length === 0 && (
-        <div className="py-12 text-center">
-          <p className="text-sm text-white/50">No rides found matching your filters</p>
+          ))}
         </div>
+      ) : (
+        <EmptyState
+          title="No rides found"
+          description="Try adjusting your filters or search a different route"
+        />
       )}
     </div>
   );

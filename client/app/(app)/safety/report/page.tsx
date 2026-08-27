@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { ArrowLeft, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -10,14 +12,21 @@ export default function SafetyReportPage() {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [rideId, setRideId] = useState("");
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => router.push("/safety"), 2000);
-  };
+  const submitMutation = useMutation({
+    mutationFn: () =>
+      api.post("/safety/report", {
+        reason,
+        description,
+        rideId: rideId || undefined,
+      }),
+    onSuccess: () => {
+      setTimeout(() => router.push("/safety"), 1500);
+    },
+  });
 
-  if (submitted) {
+  if (submitMutation.isSuccess) {
     return (
       <div className="animate-fade-in flex flex-col items-center justify-center py-20">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/10">
@@ -45,6 +54,12 @@ export default function SafetyReportPage() {
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
+        <Input
+          label="Ride ID (optional)"
+          placeholder="e.g. R-101"
+          value={rideId}
+          onChange={(e) => setRideId(e.target.value)}
+        />
         <div>
           <label className="mb-1.5 block text-sm font-medium text-white/70">Description</label>
           <textarea
@@ -55,8 +70,17 @@ export default function SafetyReportPage() {
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none"
           />
         </div>
-        <Button onClick={handleSubmit} className="w-full" disabled={!reason || !description}>
-          Submit Report
+
+        {submitMutation.isError && (
+          <p className="text-xs text-red-400">Failed to submit report. Please try again.</p>
+        )}
+
+        <Button
+          onClick={() => submitMutation.mutate()}
+          className="w-full"
+          disabled={!reason || !description || submitMutation.isPending}
+        >
+          {submitMutation.isPending ? "Submitting..." : "Submit Report"}
         </Button>
       </div>
     </div>

@@ -1,11 +1,42 @@
 "use client";
 
 import { User, MapPin, ChevronRight, LogOut, Camera } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
-import { getInitials } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
+import { useState } from "react";
 
 export default function ProfilePage() {
-  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const { user, logout, updateUser } = useAuthStore();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(user?.name || "");
+  const [city, setCity] = useState(user?.city || "");
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { name?: string; city?: string }) =>
+      api.patch(API.users.updateMe, data),
+    onSuccess: (res) => {
+      updateUser(res.data);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      setEditing(false);
+    },
+  });
+
+  const handleSave = () => {
+    const data: { name?: string; city?: string } = {};
+    if (name !== user?.name) data.name = name;
+    if (city !== user?.city) data.city = city;
+    if (Object.keys(data).length > 0) {
+      updateMutation.mutate(data);
+    } else {
+      setEditing(false);
+    }
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -30,24 +61,74 @@ export default function ProfilePage() {
         <p className="text-xs text-white/30 capitalize mt-1">{user?.role?.toLowerCase()}</p>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
-          <User className="h-5 w-5 text-white/30" />
-          <div className="flex-1">
-            <p className="text-xs text-white/40">Name</p>
-            <p className="text-sm text-white">{user?.name}</p>
+      {editing ? (
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+          <div>
+            <label className="mb-1.5 block text-xs text-white/40">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs text-white/40">City</label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setEditing(false); setName(user?.name || ""); setCity(user?.city || ""); }}
+              className="flex-1 rounded-xl border border-white/10 py-3 text-sm font-medium text-white/60 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={updateMutation.isPending}
+              className="flex-1 rounded-xl bg-white py-3 text-sm font-medium text-black hover:bg-white/90 transition-colors disabled:opacity-50"
+            >
+              {updateMutation.isPending ? "Saving..." : "Save"}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
-          <MapPin className="h-5 w-5 text-white/30" />
-          <div className="flex-1">
-            <p className="text-xs text-white/40">City</p>
-            <p className="text-sm text-white">{user?.city || "Not set"}</p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
+              <User className="h-5 w-5 text-white/30" />
+              <div className="flex-1">
+                <p className="text-xs text-white/40">Name</p>
+                <p className="text-sm text-white">{user?.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
+              <MapPin className="h-5 w-5 text-white/30" />
+              <div className="flex-1">
+                <p className="text-xs text-white/40">City</p>
+                <p className="text-sm text-white">{user?.city || "Not set"}</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <button className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left text-sm text-white/60 hover:bg-white/5 transition-colors">
+          <button
+            onClick={() => setEditing(true)}
+            className="flex w-full items-center justify-center rounded-xl border border-white/10 bg-[#0a0a0a] py-3 text-sm font-medium text-white/60 hover:bg-white/5 transition-colors"
+          >
+            Edit Profile
+          </button>
+        </>
+      )}
+
+      <button
+        onClick={() => router.push("/profile/places")}
+        className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left text-sm text-white/60 hover:bg-white/5 transition-colors"
+      >
         Saved Places <ChevronRight className="ml-auto h-4 w-4" />
       </button>
 

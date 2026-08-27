@@ -2,8 +2,10 @@
 
 import axios from "axios";
 
+let isRedirecting = false;
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001",
   headers: {
     "Content-Type": "application/json",
   },
@@ -11,9 +13,17 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("yaatra-token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const raw = localStorage.getItem("yaatra-auth");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const token = parsed?.state?.token;
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+    } catch {
+      // ignore parse errors
     }
   }
   return config;
@@ -21,12 +31,13 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-    (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("yaatra-token");
-        localStorage.removeItem("yaatra-user");
-        window.location.assign("/login");
+  (error) => {
+    if (error.response?.status === 401 && !isRedirecting) {
+      const hadToken = error.config?.headers?.Authorization;
+      if (hadToken && typeof window !== "undefined") {
+        isRedirecting = true;
+        localStorage.removeItem("yaatra-auth");
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

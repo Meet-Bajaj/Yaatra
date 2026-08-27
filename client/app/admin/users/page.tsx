@@ -1,23 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
 
-const users = [
-  { id: "1", name: "Arjun Kumar", phone: "+91 98765 43210", role: "DRIVER", status: "ACTIVE", city: "Bangalore" },
-  { id: "2", name: "Priya Mehta", phone: "+91 87654 32109", role: "RIDER", status: "ACTIVE", city: "Bangalore" },
-  { id: "3", name: "Rahul Singh", phone: "+91 76543 21098", role: "BOTH", status: "SUSPENDED", city: "Mumbai" },
-];
+interface AdminUser {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  status: string;
+  city?: string;
+}
 
 export default function AdminUsersPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
-  const filtered = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.phone.includes(search)
-  );
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["admin-users", search],
+    queryFn: async () => {
+      try {
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        const res = await api.get(`${API.admin.users}?${params.toString()}`);
+        return (Array.isArray(res.data) ? res.data : []) as AdminUser[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch(API.admin.updateUserStatus(id), { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -34,25 +57,55 @@ export default function AdminUsersPage() {
         />
       </div>
 
-      <div className="space-y-2">
-        {filtered.map((user) => (
-          <div key={user.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
-              {user.name[0]}
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-white/5" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {users.map((user) => (
+            <div key={user.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+                {user.name?.[0] || "?"}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-white">{user.name}</p>
+                <p className="text-xs text-white/40">{user.phone}{user.city ? ` - ${user.city}` : ""}</p>
+              </div>
+              <div className="text-right">
+                <span className={cn(
+                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  user.status === "ACTIVE" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"
+                )}>
+                  {user.status}
+                </span>
+                <p className="mt-1 text-[10px] text-white/30">{user.role}</p>
+              </div>
+              {user.status === "ACTIVE" && (
+                <button
+                  onClick={() => statusMutation.mutate({ id: user.id, status: "SUSPENDED" })}
+                  className="text-[10px] text-red-400 hover:text-red-300"
+                >
+                  Suspend
+                </button>
+              )}
+              {user.status === "SUSPENDED" && (
+                <button
+                  onClick={() => statusMutation.mutate({ id: user.id, status: "ACTIVE" })}
+                  className="text-[10px] text-green-400 hover:text-green-300"
+                >
+                  Activate
+                </button>
+              )}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{user.name}</p>
-              <p className="text-xs text-white/40">{user.phone} - {user.city}</p>
-            </div>
-            <div className="text-right">
-              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", user.status === "ACTIVE" ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400")}>
-                {user.status}
-              </span>
-              <p className="mt-1 text-[10px] text-white/30">{user.role}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+          {users.length === 0 && (
+            <p className="py-12 text-center text-sm text-white/40">No users found</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,30 +2,65 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Share2, AlertTriangle, MapPin, Navigation, X } from "lucide-react";
+import { Phone, Share2, AlertTriangle, MapPin, Navigation, X, Check, Star } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { RatingBar } from "@/components/ui/rating-bar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 export default function ActiveTripPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [tripStatus, setTripStatus] = useState("arriving");
   const [showCancel, setShowCancel] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
 
   useEffect(() => {
     const timer = setTimeout(() => setTripStatus("in_progress"), 3000);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleComplete = () => {
-    setShowRating(true);
-  };
+  const cancelMutation = useMutation({
+    mutationFn: (tripId: string) => api.post(API.rides.cancel(tripId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rides-upcoming"] });
+      router.push("/dashboard");
+    },
+  });
 
-  const handleRate = () => {
-    setShowRating(false);
-    router.push("/dashboard");
+  const sosMutation = useMutation({
+    mutationFn: () => api.post(API.safety.emergency),
+  });
+
+  const shareTripMutation = useMutation({
+    mutationFn: (tripId: string) => api.post(API.safety.tripShare(tripId)),
+    onSuccess: (res) => {
+      const link = res.data?.shareUrl || res.data?.link;
+      if (link && navigator.share) {
+        navigator.share({ title: "Share my trip", url: link }).catch(() => {});
+      } else if (link) {
+        navigator.clipboard.writeText(link);
+      }
+    },
+  });
+
+  const rateMutation = useMutation({
+    mutationFn: ({ tripId, score, comment }: { tripId: string; score: number; comment?: string }) =>
+      api.post(API.rating.create, { tripId, score, comment }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rides-history"] });
+      setShowRating(false);
+      router.push("/dashboard");
+    },
+  });
+
+  const handleSOS = () => {
+    navigator.vibrate?.(200);
+    sosMutation.mutate();
   };
 
   return (
@@ -62,8 +97,12 @@ export default function ActiveTripPage() {
           <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 transition-colors">
             <Phone className="h-4 w-4" /> Call
           </button>
-          <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 transition-colors">
-            <Share2 className="h-4 w-4" /> Share Trip
+          <button
+            onClick={() => shareTripMutation.mutate("current")}
+            disabled={shareTripMutation.isPending}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+          >
+            <Share2 className="h-4 w-4" /> {shareTripMutation.isPending ? "Sharing..." : "Share Trip"}
           </button>
           <button
             onClick={() => setShowCancel(true)}
@@ -88,20 +127,25 @@ export default function ActiveTripPage() {
       </div>
 
       {tripStatus === "in_progress" && (
-        <Button onClick={handleComplete} className="w-full" size="lg">
+        <Button onClick={() => setShowRating(true)} className="w-full" size="lg">
           Mark as Complete
         </Button>
       )}
 
       <button
-        onClick={() => {
-          navigator.vibrate?.(200);
-        }}
-        className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 py-4 text-center text-sm font-semibold text-red-400 hover:bg-red-500/20 transition-colors"
+        onClick={handleSOS}
+        disabled={sosMutation.isPending}
+        className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 py-4 text-center text-sm font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
       >
         <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
-        Emergency SOS
+        {sosMutation.isPending ? "Sending Alert..." : "Emergency SOS"}
       </button>
+
+      {sosMutation.isSuccess && (
+        <div className="rounded-lg bg-green-500/10 px-4 py-3 text-sm text-green-400">
+          Emergency alert sent. Help is on the way.
+        </div>
+      )}
 
       <BottomSheet open={showCancel} onClose={() => setShowCancel(false)} title="Cancel Ride?">
         <p className="mb-4 text-sm text-white/50">
@@ -111,8 +155,13 @@ export default function ActiveTripPage() {
           <Button variant="outline" className="flex-1" onClick={() => setShowCancel(false)}>
             Keep Ride
           </Button>
-          <Button variant="destructive" className="flex-1" onClick={() => router.push("/dashboard")}>
-            Cancel Ride
+          <Button
+            variant="destructive"
+            className="flex-1"
+            onClick={() => cancelMutation.mutate("current")}
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? "Cancelling..." : "Cancel Ride"}
           </Button>
         </div>
       </BottomSheet>
@@ -121,8 +170,19 @@ export default function ActiveTripPage() {
         <div className="flex flex-col items-center py-4">
           <p className="mb-4 text-sm text-white/50">How was your ride with Arjun?</p>
           <RatingBar value={rating} onChange={setRating} size="lg" interactive />
-          <Button className="mt-6 w-full" onClick={handleRate} disabled={rating === 0}>
-            Submit Rating
+          <input
+            type="text"
+            placeholder="Add a comment (optional)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none"
+          />
+          <Button
+            className="mt-4 w-full"
+            onClick={() => rateMutation.mutate({ tripId: "current", score: rating, comment: comment || undefined })}
+            disabled={rating === 0 || rateMutation.isPending}
+          >
+            {rateMutation.isPending ? "Submitting..." : "Submit Rating"}
           </Button>
         </div>
       </BottomSheet>

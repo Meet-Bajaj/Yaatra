@@ -48,8 +48,6 @@ export const API = {
     accept: "/driver/accept",
     reject: "/driver/reject",
     earnings: "/driver/earnings",
-    vehicles: "/driver/vehicles",
-    vehicleById: (id: string) => `/driver/vehicles/${id}`,
   },
   rides: {
     available: "/rides/available",
@@ -69,12 +67,12 @@ export const API = {
     history: "/payments/history",
     retry: "/payments/retry",
     dispute: "/payments/dispute",
-    webhook: "/payments/webhook",
   },
   pricing: {
     estimate: "/pricing/estimate",
   },
   rating: {
+    create: "/rating",
     list: "/rating",
     byId: (id: string) => `/rating/${id}`,
   },

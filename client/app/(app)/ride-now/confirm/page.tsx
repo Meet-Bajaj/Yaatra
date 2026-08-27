@@ -1,42 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, CreditCard, Wallet, Shield, Check } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
+import { useRideSearchStore } from "@/stores/rideSearchStore";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatINR } from "@/lib/utils";
+
+interface PriceEstimate {
+  baseFare: number;
+  distanceFare: number;
+  platformFee: number;
+  total: number;
+  distance?: number;
+}
 
 const paymentMethods = [
-  { id: "wallet", label: "Yaatra Wallet", icon: Wallet, balance: "₹1,250" },
-  { id: "upi", label: "UPI", icon: CreditCard, balance: "" },
-  { id: "card", label: "Credit/Debit Card", icon: CreditCard, balance: "" },
+  { id: "wallet", label: "Yaatra Wallet", icon: Wallet },
+  { id: "upi", label: "UPI", icon: CreditCard },
+  { id: "card", label: "Credit/Debit Card", icon: CreditCard },
 ];
 
 export default function RideConfirmPage() {
   const router = useRouter();
+  const { pickup, dropoff } = useRideSearchStore();
   const [selectedPayment, setSelectedPayment] = useState("wallet");
-  const [loading, setLoading] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
 
-  const handleConfirm = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setConfirmed(true);
-    setTimeout(() => router.push("/active-trip"), 1500);
-  };
+  const { data: pricing, isLoading: pricingLoading } = useQuery({
+    queryKey: ["pricing-estimate", pickup?.address, dropoff?.address],
+    queryFn: async () => {
+      try {
+        const res = await api.post(API.pricing.estimate, {
+          pickupLat: pickup?.lat,
+          pickupLng: pickup?.lng,
+          pickupAddress: pickup?.address,
+          dropoffLat: dropoff?.lat,
+          dropoffLng: dropoff?.lng,
+          dropoffAddress: dropoff?.address,
+        });
+        return res.data as PriceEstimate;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!(pickup && dropoff),
+  });
 
-  if (confirmed) {
-    return (
-      <div className="animate-fade-in flex flex-col items-center justify-center py-20">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white">
-          <Check className="h-10 w-10 text-black" />
-        </div>
-        <h2 className="mb-2 text-xl font-bold text-white">Ride Confirmed!</h2>
-        <p className="text-sm text-white/50">Your driver is on the way</p>
-      </div>
-    );
-  }
+  const bookMutation = useMutation({
+    mutationFn: () =>
+      api.post(API.rides.book, {
+        pickupLat: pickup?.lat,
+        pickupLng: pickup?.lng,
+        pickupAddress: pickup?.address,
+        dropoffLat: dropoff?.lat,
+        dropoffLng: dropoff?.lng,
+        dropoffAddress: dropoff?.address,
+        paymentMethod: selectedPayment.toUpperCase(),
+      }),
+    onSuccess: (res) => {
+      const rideId = res.data?.id;
+      if (rideId) {
+        router.push("/active-trip");
+      } else {
+        router.push("/active-trip");
+      }
+    },
+  });
+
+  const total = pricing?.total ?? 0;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -52,26 +86,36 @@ export default function RideConfirmPage() {
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-5">
         <h3 className="mb-4 text-sm font-semibold text-white/70 uppercase tracking-wider">Fare Breakdown</h3>
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-white/60">Base fare</span>
-            <span className="text-white">₹80</span>
+        {pricingLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-5 animate-pulse rounded bg-white/5" />
+            ))}
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-white/60">Distance (12.5 km)</span>
-            <span className="text-white">₹62</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-white/60">Platform fee</span>
-            <span className="text-white">₹10</span>
-          </div>
-          <div className="border-t border-white/10 pt-3">
-            <div className="flex justify-between">
-              <span className="font-semibold text-white">Total</span>
-              <span className="text-lg font-bold text-white">₹152</span>
+        ) : pricing ? (
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Base fare</span>
+              <span className="text-white">{formatINR(pricing.baseFare)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Distance{pricing.distance ? ` (${pricing.distance} km)` : ""}</span>
+              <span className="text-white">{formatINR(pricing.distanceFare)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Platform fee</span>
+              <span className="text-white">{formatINR(pricing.platformFee)}</span>
+            </div>
+            <div className="border-t border-white/10 pt-3">
+              <div className="flex justify-between">
+                <span className="font-semibold text-white">Total</span>
+                <span className="text-lg font-bold text-white">{formatINR(total)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <p className="text-sm text-white/40">Pricing unavailable. Please try again.</p>
+        )}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-5">
@@ -92,7 +136,6 @@ export default function RideConfirmPage() {
               >
                 <Icon className="h-5 w-5 text-white/50" />
                 <span className="flex-1 text-left text-sm text-white">{method.label}</span>
-                {method.balance && <span className="text-xs text-white/40">{method.balance}</span>}
                 {selectedPayment === method.id && <Check className="h-4 w-4 text-white" />}
               </button>
             );
@@ -111,8 +154,23 @@ export default function RideConfirmPage() {
         </div>
       </div>
 
-      <Button onClick={handleConfirm} className="w-full" size="lg" disabled={loading}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Pay ₹152"}
+      {bookMutation.isError && (
+        <div className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          Failed to book ride. Please try again.
+        </div>
+      )}
+
+      <Button
+        onClick={() => bookMutation.mutate()}
+        className="w-full"
+        size="lg"
+        disabled={bookMutation.isPending || pricingLoading || !pricing}
+      >
+        {bookMutation.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          `Confirm & Pay ${formatINR(total)}`
+        )}
       </Button>
     </div>
   );

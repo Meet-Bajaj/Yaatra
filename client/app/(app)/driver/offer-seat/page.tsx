@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
@@ -29,6 +32,23 @@ export default function OfferSeatPage() {
     { label: "Publish", description: "Review and publish" },
   ];
 
+  const publishMutation = useMutation({
+    mutationFn: () =>
+      api.post(API.driver.offer, {
+        homeAddress,
+        workAddress,
+        departureTime,
+        returnTime,
+        days: selectedDays,
+        seats,
+        pricePerSeat,
+        womenOnly,
+      }),
+    onSuccess: () => {
+      router.push("/driver/offers");
+    },
+  });
+
   const toggleDay = (day: string) => {
     setSelectedDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -36,7 +56,7 @@ export default function OfferSeatPage() {
   };
 
   const handlePublish = () => {
-    router.push("/driver/offers");
+    publishMutation.mutate();
   };
 
   return (
@@ -111,6 +131,10 @@ export default function OfferSeatPage() {
             <div className="flex justify-between text-sm"><span className="text-white/60">Price/seat</span><span className="text-white">₹{pricePerSeat}</span></div>
             {womenOnly && <div className="flex justify-between text-sm"><span className="text-white/60">Women Only</span><span className="text-pink-400">Yes</span></div>}
           </div>
+
+          {publishMutation.isError && (
+            <p className="text-xs text-red-400">Failed to publish offer. Please try again.</p>
+          )}
         </div>
       )}
 
@@ -126,9 +150,11 @@ export default function OfferSeatPage() {
             if (step === steps.length - 1) handlePublish();
             else setStep(step + 1);
           }}
-          disabled={step === 0 && (!homeAddress || !workAddress)}
+          disabled={(step === 0 && (!homeAddress || !workAddress)) || publishMutation.isPending}
         >
-          {step === steps.length - 1 ? "Publish" : "Continue"} <ArrowRight className="h-4 w-4" />
+          {step === steps.length - 1
+            ? (publishMutation.isPending ? "Publishing..." : "Publish")
+            : "Continue"} <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

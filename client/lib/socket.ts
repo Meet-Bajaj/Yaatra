@@ -6,15 +6,15 @@ let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000", {
+    socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001", {
       autoConnect: false,
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
     });
   }
   return socket;
 }
 
-export function connectSocket(token: string) {
+export function connectSocket(token: string): Socket {
   const s = getSocket();
   if (!s.connected) {
     s.auth = { token };

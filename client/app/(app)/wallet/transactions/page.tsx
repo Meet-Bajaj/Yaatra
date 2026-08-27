@@ -1,52 +1,83 @@
 "use client";
 
 import { ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
+import { cn, formatINR } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
-const allTransactions = [
-  { id: "1", type: "DEBIT", amount: -120, description: "Ride: Koramangala to EC", date: "23 Aug 2026", method: "Wallet" },
-  { id: "2", type: "TOPUP", amount: 500, description: "Wallet top-up via UPI", date: "22 Aug 2026", method: "UPI" },
-  { id: "3", type: "DEBIT", amount: -80, description: "Ride: HSR to Whitefield", date: "22 Aug 2026", method: "Wallet" },
-  { id: "4", type: "REFUND", amount: 50, description: "Refund - Ride cancelled", date: "21 Aug 2026", method: "Wallet" },
-  { id: "5", type: "DEBIT", amount: -250, description: "Ride: Koramangala to EC", date: "20 Aug 2026", method: "Card" },
-];
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+  method?: string;
+}
 
-const typeIcon = {
+const typeIcon: Record<string, typeof ArrowUpRight> = {
   DEBIT: ArrowUpRight,
   TOPUP: ArrowDownLeft,
+  CREDIT: ArrowDownLeft,
   REFUND: RefreshCw,
 };
 
 export default function WalletTransactionsPage() {
+  const { data: transactions = [], isLoading } = useQuery({
+    queryKey: ["wallet-transactions"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.wallet.transactions);
+        return (res.data || []) as Transaction[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
   return (
     <div className="animate-fade-in space-y-4">
       <h1 className="text-2xl font-bold text-white">Transactions</h1>
 
-      <div className="space-y-2">
-        {allTransactions.map((txn) => {
-          const Icon = typeIcon[txn.type as keyof typeof typeIcon] || ArrowUpRight;
-          return (
-            <div key={txn.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
-              <div className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-xl",
-                txn.amount > 0 ? "bg-green-500/10" : "bg-white/5"
-              )}>
-                <Icon className="h-5 w-5 text-white/50" />
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
+          ))}
+        </div>
+      ) : transactions.length > 0 ? (
+        <div className="space-y-2">
+          {transactions.map((txn) => {
+            const Icon = typeIcon[txn.type] || ArrowUpRight;
+            return (
+              <div key={txn.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
+                <div className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-xl",
+                  txn.amount > 0 ? "bg-green-500/10" : "bg-white/5"
+                )}>
+                  <Icon className="h-5 w-5 text-white/50" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">{txn.description}</p>
+                  <p className="text-xs text-white/40">
+                    {new Date(txn.createdAt).toLocaleDateString()}
+                    {txn.method ? ` - ${txn.method}` : ""}
+                  </p>
+                </div>
+                <p className={cn(
+                  "text-sm font-semibold",
+                  txn.amount > 0 ? "text-green-400" : "text-white"
+                )}>
+                  {txn.amount > 0 ? "+" : ""}{formatINR(txn.amount)}
+                </p>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">{txn.description}</p>
-                <p className="text-xs text-white/40">{txn.date} - {txn.method}</p>
-              </div>
-              <p className={cn(
-                "text-sm font-semibold",
-                txn.amount > 0 ? "text-green-400" : "text-white"
-              )}>
-                {txn.amount > 0 ? "+" : ""}₹{Math.abs(txn.amount)}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState title="No transactions yet" />
+      )}
     </div>
   );
 }

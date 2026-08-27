@@ -1,42 +1,94 @@
 "use client";
 
 import { Check, X } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
-const requests = [
-  { id: "1", riderName: "Sneha G.", route: "HSR Layout to Electronic City", time: "Mon-Fri, 9:00 AM" },
-  { id: "2", riderName: "Karan T.", route: "HSR Layout to Electronic City", time: "Mon-Fri, 9:00 AM" },
-];
+interface Request {
+  id: string;
+  riderName: string;
+  route: string;
+  time: string;
+  seats?: number;
+}
 
 export default function DriverRequestsPage() {
+  const queryClient = useQueryClient();
+
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ["driver-requests"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.driver.requests);
+        return (Array.isArray(res.data) ? res.data : []) as Request[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: (id: string) => api.post(API.driver.acceptRequest(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["driver-requests"] }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => api.post(API.driver.rejectRequest(id)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["driver-requests"] }),
+  });
+
   return (
     <div className="animate-fade-in space-y-6">
       <h1 className="text-2xl font-bold text-white">Incoming Requests</h1>
 
-      <div className="space-y-3">
-        {requests.map((request) => (
-          <div key={request.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
-                {request.riderName[0]}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-white/5" />
+          ))}
+        </div>
+      ) : requests.length > 0 ? (
+        <div className="space-y-3">
+          {requests.map((request) => (
+            <div key={request.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+                  {request.riderName?.[0] || "?"}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">{request.riderName}</p>
+                  <p className="text-xs text-white/40">{request.route}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-white">{request.riderName}</p>
-                <p className="text-xs text-white/40">{request.route}</p>
+              <p className="mb-3 text-xs text-white/40">{request.time}</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => rejectMutation.mutate(request.id)}
+                  disabled={rejectMutation.isPending || acceptMutation.isPending}
+                >
+                  <X className="h-4 w-4" /> Reject
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => acceptMutation.mutate(request.id)}
+                  disabled={acceptMutation.isPending || rejectMutation.isPending}
+                >
+                  <Check className="h-4 w-4" /> Accept
+                </Button>
               </div>
             </div>
-            <p className="mb-3 text-xs text-white/40">{request.time}</p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
-                <X className="h-4 w-4" /> Reject
-              </Button>
-              <Button size="sm" className="flex-1">
-                <Check className="h-4 w-4" /> Accept
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No pending requests" description="Requests from riders will appear here" />
+      )}
     </div>
   );
 }

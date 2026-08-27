@@ -2,37 +2,55 @@
 
 import { useState } from "react";
 import { Clock, CheckCircle, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { API } from "@/lib/endpoints";
+import { cn, formatINR } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
-const upcomingRides = [
-  {
-    id: "1",
-    route: "Koramangala to Electronic City",
-    date: "Tomorrow, 9:00 AM",
-    driver: "Arjun K.",
-    status: "confirmed",
-  },
-];
-
-const completedRides = [
-  {
-    id: "2",
-    route: "HSR Layout to Whitefield",
-    date: "22 Aug 2026, 8:30 AM",
-    driver: "Priya M.",
-    fare: 180,
-  },
-  {
-    id: "3",
-    route: "Koramangala to Electronic City",
-    date: "21 Aug 2026, 9:00 AM",
-    driver: "Rahul S.",
-    fare: 120,
-  },
-];
+interface Ride {
+  id: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  status: string;
+  scheduledFor?: string;
+  fare?: number;
+  driver?: { name: string };
+  createdAt: string;
+}
 
 export default function RidesPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<"upcoming" | "history">("upcoming");
+
+  const { data: upcomingRides = [], isLoading: loadingUpcoming } = useQuery({
+    queryKey: ["rides-upcoming"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.rides.upcoming);
+        return (res.data || []) as Ride[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { data: historyRides = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ["rides-history"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.rides.history);
+        return (res.data || []) as Ride[];
+      } catch {
+        return [];
+      }
+    },
+    enabled: tab === "history",
+  });
+
+  const rides = tab === "upcoming" ? upcomingRides : historyRides;
+  const isLoading = tab === "upcoming" ? loadingUpcoming : loadingHistory;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -59,53 +77,47 @@ export default function RidesPage() {
         </button>
       </div>
 
-      {tab === "upcoming" && (
+      {isLoading ? (
         <div className="space-y-3">
-          {upcomingRides.length === 0 ? (
-            <div className="py-12 text-center">
-              <Calendar className="mx-auto mb-3 h-10 w-10 text-white/20" />
-              <p className="text-sm text-white/50">No upcoming rides</p>
-            </div>
-          ) : (
-            upcomingRides.map((ride) => (
-              <div key={ride.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs text-white/50">
-                    <Clock className="h-3 w-3" /> {ride.date}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-green-400">
-                    <CheckCircle className="h-3 w-3" /> {ride.status}
-                  </span>
-                </div>
-                <p className="mb-1 text-sm font-medium text-white">{ride.route}</p>
-                <p className="text-xs text-white/40">Driver: {ride.driver}</p>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {tab === "history" && (
-        <div className="space-y-3">
-          {completedRides.map((ride) => (
-            <div key={ride.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs text-white/50">{ride.date}</span>
-                <span className="text-sm font-semibold text-white">₹{ride.fare}</span>
-              </div>
-              <p className="mb-1 text-sm font-medium text-white">{ride.route}</p>
-              <p className="text-xs text-white/40">Driver: {ride.driver}</p>
-              <div className="mt-3 flex gap-2">
-                <button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/5 transition-colors">
-                  Rebook
-                </button>
-                <button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:bg-white/5 transition-colors">
-                  Receipt
-                </button>
-              </div>
-            </div>
+          {[1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-white/5" />
           ))}
         </div>
+      ) : rides.length > 0 ? (
+        <div className="space-y-3">
+          {rides.map((ride) => (
+            <button
+              key={ride.id}
+              onClick={() => router.push(`/rides/${ride.id}`)}
+              className="w-full text-left rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 transition-colors hover:border-white/20"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs text-white/50">
+                  <Clock className="h-3 w-3" /> {ride.scheduledFor ? new Date(ride.scheduledFor).toLocaleDateString() : new Date(ride.createdAt).toLocaleDateString()}
+                </span>
+                <span className={cn(
+                  "flex items-center gap-1 text-xs",
+                  ride.status === "CONFIRMED" || ride.status === "COMPLETED" ? "text-green-400" : "text-white/50"
+                )}>
+                  <CheckCircle className="h-3 w-3" /> {ride.status}
+                </span>
+              </div>
+              <p className="mb-1 text-sm font-medium text-white">
+                {ride.pickupAddress || "Pickup"} → {ride.dropoffAddress || "Dropoff"}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-white/40">
+                  {ride.driver?.name ? `Driver: ${ride.driver.name}` : ""}
+                </p>
+                {ride.fare != null && (
+                  <p className="text-sm font-semibold text-white">{formatINR(ride.fare)}</p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={<Calendar className="h-12 w-12" />} title={tab === "upcoming" ? "No upcoming rides" : "No ride history"} />
       )}
     </div>
   );

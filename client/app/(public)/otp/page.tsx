@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ArrowLeft, RotateCcw } from "lucide-react";
+import { Loader2, ArrowLeft, RotateCcw, Lock } from "lucide-react";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { OTPInput } from "@/components/auth/otp-input";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 300;
+const RESEND_SECONDS = 30;
 
 function OTPContent() {
   const router = useRouter();
@@ -18,17 +22,29 @@ function OTPContent() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [countdown, setCountdown] = useState(30);
-  const canResend = countdown <= 0;
+  const [attempts, setAttempts] = useState(0);
+  const [locked, setLocked] = useState(false);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+  const [resendCountdown, setResendCountdown] = useState(RESEND_SECONDS);
+  const canResend = resendCountdown <= 0 && !locked;
 
   useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
     return () => clearTimeout(timer);
-  }, [countdown]);
+  }, [resendCountdown]);
 
-  const handleVerify = async () => {
-    if (otp.length !== 6) return;
+  useEffect(() => {
+    if (lockoutTimer <= 0) {
+      if (locked) setLocked(false);
+      return;
+    }
+    const timer = setTimeout(() => setLockoutTimer(lockoutTimer - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [lockoutTimer, locked]);
+
+  const handleVerify = useCallback(async () => {
+    if (otp.length !== 6 || locked) return;
     setLoading(true);
     setError("");
     try {
@@ -36,19 +52,33 @@ function OTPContent() {
       const { user, access_token } = res.data;
       setAuth(user, access_token);
       router.push("/dashboard");
-    } catch {
-      setError("Invalid OTP. Please try again.");
+    } catch (err: unknown) {
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        setLocked(true);
+        setLockoutTimer(LOCKOUT_SECONDS);
+        setError(`Too many failed attempts. Try again in ${LOCKOUT_SECONDS / 60} minutes.`);
+      } else {
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        setError(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
+      }
+      setOtp("");
     } finally {
       setLoading(false);
     }
-  };
+  }, [otp, locked, phone, attempts, setAuth, router]);
 
   const handleResend = async () => {
-    setCountdown(30);
+    if (!canResend) return;
+    setResendCountdown(RESEND_SECONDS);
+    setError("");
     try {
-      await api.post("/auth/otp", { phone });
+      await api.post("/auth/resend-otp", { phone });
     } catch {
-      setCountdown(0);
+      setResendCountdown(0);
+      setError("Failed to resend OTP. Please try again.");
     }
   };
 
@@ -73,13 +103,25 @@ function OTPContent() {
         </div>
       )}
 
-      <OTPInput value={otp} onChange={setOtp} className="mb-6 justify-center" />
+      {locked ? (
+        <div className="mb-6 flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+          <Lock className="h-8 w-8 text-red-400" />
+          <div className="text-center">
+            <p className="text-sm font-medium text-red-400">Account temporarily locked</p>
+            <p className="mt-1 text-xs text-white/40">
+              Try again in {Math.floor(lockoutTimer / 60)}:{String(lockoutTimer % 60).padStart(2, "0")}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <OTPInput value={otp} onChange={setOtp} className="mb-6 justify-center" />
+      )}
 
       <Button
         onClick={handleVerify}
         className="w-full"
         size="lg"
-        disabled={otp.length !== 6 || loading}
+        disabled={otp.length !== 6 || loading || locked}
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
       </Button>
@@ -95,10 +137,16 @@ function OTPContent() {
           </button>
         ) : (
           <p className="text-sm text-white/40">
-            Resend OTP in <span className="font-medium text-white">{countdown}s</span>
+            Resend OTP in <span className="font-medium text-white">{resendCountdown}s</span>
           </p>
         )}
       </div>
+
+      {attempts > 0 && !locked && (
+        <p className="mt-3 text-center text-[10px] text-white/30">
+          {MAX_ATTEMPTS - attempts} attempt{MAX_ATTEMPTS - attempts !== 1 ? "s" : ""} remaining before lockout
+        </p>
+      )}
     </div>
   );
 }

@@ -1,41 +1,19 @@
 import {
   WebSocketGateway,
-  SubscribeMessage,
-  MessageBody,
+  WebSocketServer,
 } from '@nestjs/websockets';
-import { NotificationService } from './notification.service';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { Server } from 'socket.io';
 
-@WebSocketGateway()
+@WebSocketGateway({ cors: true })
 export class NotificationGateway {
-  constructor(private readonly notificationService: NotificationService) {}
+  @WebSocketServer()
+  server: Server;
 
-  @SubscribeMessage('createNotification')
-  create(@MessageBody() createNotificationDto: CreateNotificationDto) {
-    return this.notificationService.create(createNotificationDto);
+  sendNotification(userId: string, notification: unknown) {
+    this.server?.to(`user:${userId}`).emit('notification', notification);
   }
 
-  @SubscribeMessage('findAllNotification')
-  findAll() {
-    return this.notificationService.findAll();
-  }
-
-  @SubscribeMessage('findOneNotification')
-  findOne(@MessageBody() id: number) {
-    return this.notificationService.findOne(id);
-  }
-
-  @SubscribeMessage('updateNotification')
-  update(@MessageBody() updateNotificationDto: UpdateNotificationDto) {
-    return this.notificationService.update(
-      updateNotificationDto.id,
-      updateNotificationDto,
-    );
-  }
-
-  @SubscribeMessage('removeNotification')
-  remove(@MessageBody() id: number) {
-    return this.notificationService.remove(id);
+  sendUnreadCount(userId: string, count: number) {
+    this.server?.to(`user:${userId}`).emit('unread_count', { count });
   }
 }

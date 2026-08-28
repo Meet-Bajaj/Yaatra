@@ -128,4 +128,20 @@ export class DriverController {
   getEarnings() {
     return { message: 'TODO: implement earnings' };
   }
+
+  @Post('trips/:id/arrive')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Driver arrived at pickup location' })
+  arriveAtPickup(@Param('id') id: string) {
+    return { message: `TODO: implement arrive at pickup for trip ${id}` };
+  }
+
+  @Post('trips/:id/complete')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Driver completes trip' })
+  completeTrip(@Param('id') id: string) {
+    return { message: `TODO: implement complete trip ${id}` };
+  }
 }

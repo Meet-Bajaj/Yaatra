@@ -1,26 +1,48 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class NotificationService {
-  create(_createNotificationDto: CreateNotificationDto) {
-    return 'This action adds a new notification';
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreateNotificationDto) {
+    return this.prisma.notification.create({
+      data: {
+        userId: dto.userId,
+        type: dto.type,
+        payload: dto.payload as Prisma.InputJsonValue,
+        readAt: dto.readAt ?? null,
+      },
+    });
   }
 
-  findAll() {
-    return `This action returns all notification`;
+  async findAllByUser(userId: string) {
+    return this.prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} notification`;
+  async markRead(id: string, userId: string) {
+    return this.prisma.notification.updateMany({
+      where: { id, userId, readAt: null },
+      data: { readAt: new Date() },
+    });
   }
 
-  update(id: number, _updateNotificationDto: UpdateNotificationDto) {
-    return `This action updates a #${id} notification`;
+  async markAllRead(userId: string) {
+    return this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} notification`;
+  async unreadCount(userId: string) {
+    return this.prisma.notification.count({
+      where: { userId, readAt: null },
+    });
   }
 }

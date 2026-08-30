@@ -44,8 +44,8 @@ export class SmsService {
       }
     }
 
-    // Dev mode — log the OTP
-    this.logger.log(`[DEV] OTP for ${this.maskPhone(phone)}: ${code}`);
+    // Dev mode — log the OTP with full phone number
+    this.logger.log(`📱 [DEV] OTP for ${phone}: ${code}`);
     return true;
   }
 

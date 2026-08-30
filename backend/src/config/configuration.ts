@@ -19,6 +19,8 @@ export default () => ({
   otp: {
     provider: process.env.OTP_PROVIDER || 'twilio',
     apiKey: process.env.OTP_API_KEY,
+    masterOtp: process.env.MASTER_OTP === 'TRUE',
+    masterOtpValue: process.env.MASTER_OTP_VALUE || '123456',
   },
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID,

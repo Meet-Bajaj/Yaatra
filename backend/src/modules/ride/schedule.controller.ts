@@ -19,7 +19,9 @@ export class ScheduleController {
   @Get('matches')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Find matching carpool offers for a route/schedule' })
+  @ApiOperation({
+    summary: 'Find matching carpool offers for a route/schedule',
+  })
   getMatches() {
     return { message: 'TODO: implement schedule matches' };
   }

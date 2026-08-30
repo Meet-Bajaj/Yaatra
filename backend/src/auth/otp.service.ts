@@ -17,8 +17,22 @@ const RESEND_COOLDOWN_SECONDS = 30;
 export class OtpService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OtpService.name);
   private redis: Redis;
+  private readonly masterOtpEnabled: boolean;
+  private readonly masterOtpValue: string;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    this.masterOtpEnabled = this.config.get<boolean>('otp.masterOtp', false);
+    this.masterOtpValue = this.config.get<string>(
+      'otp.masterOtpValue',
+      '123456',
+    );
+
+    if (this.masterOtpEnabled) {
+      this.logger.warn(
+        `⚠️  MASTER OTP MODE ENABLED — use "${this.masterOtpValue}" for any phone`,
+      );
+    }
+  }
 
   onModuleInit() {
     const redisUrl = this.config.get<string>(
@@ -64,7 +78,8 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Generate and store a 6-digit OTP for the given phone number.
-   * Returns the code (for dev/testing) and TTL.
+   * In master OTP mode, stores the master value instead of a random code.
+   * Returns the code and TTL.
    */
   async generateOtp(
     phone: string,
@@ -85,7 +100,10 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    const code = randomInt(100000, 999999).toString();
+    // Use master OTP if enabled, otherwise generate random
+    const code = this.masterOtpEnabled
+      ? this.masterOtpValue
+      : randomInt(100000, 999999).toString();
 
     // Store OTP with TTL
     await this.redis.setex(this.otpKey(phone), OTP_TTL_SECONDS, code);
@@ -100,7 +118,10 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
       '1',
     );
 
-    this.logger.log(`OTP generated for ${this.maskPhone(phone)}`);
+    // Always log OTP to console with phone number
+    this.logger.log(
+      `📱 OTP for ${phone}: ${code} (expires in ${OTP_TTL_SECONDS}s)`,
+    );
 
     return { code, expiresIn: OTP_TTL_SECONDS };
   }
@@ -151,7 +172,7 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
     await this.redis.del(this.attemptsKey(phone));
     await this.redis.del(this.cooldownKey(phone));
 
-    this.logger.log(`OTP verified for ${this.maskPhone(phone)}`);
+    this.logger.log(`OTP verified for ${phone}`);
 
     return true;
   }
@@ -170,10 +191,5 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
   async getResendCooldown(phone: string): Promise<number> {
     const ttl = await this.redis.ttl(this.cooldownKey(phone));
     return ttl > 0 ? ttl : 0;
-  }
-
-  private maskPhone(phone: string): string {
-    if (phone.length <= 4) return '****';
-    return `${phone.slice(0, 3)}****${phone.slice(-2)}`;
   }
 }

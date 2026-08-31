@@ -1,45 +1,84 @@
-version: '3.8'
-
 services:
-  # Everything is bundled here. Run it once and leave it running.
   postgres:
     image: postgis/postgis:16-3.4-alpine
-    container_name: global-postgres
-    restart: always
+    container_name: yaatri-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: SuperSecurePassword123!
-      POSTGRES_DB: main_admin
+      POSTGRES_DB: yaatri
     ports:
-      - "5432:5432" # Binds to your machine's physical port 5432
+      - "5432:5432"
     volumes:
-      - pg_global_data:/var/lib/postgresql/data
+      - yaatri-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d yaatri"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: global-redis
-    restart: always
-    command: redis-server --requirepass AnotherSuperSecurePassword456!
+    container_name: yaatri-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 64mb
+      --maxmemory-policy volatile-ttl
+      --save ""
+      --appendonly no
     ports:
-      - "6379:6379" # Binds to your machine's physical port 6379
+      - "6379:6379"
     volumes:
-      - redis_global_data:/data
+      - yaatri-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio:latest
-    container_name: global-minio
-    restart: always
+    container_name: yaatri-minio
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minio_admin
       MINIO_ROOT_PASSWORD: MinioSecurePassword789!
     ports:
-      - "9000:9000" # API port
-      - "9001:9001" # Web Dashboard port
+      - "9000:9000"
+      - "9001:9001"
     command: server /data --console-address ":9001"
     volumes:
-      - minio_global_data:/data
+      - yaatri-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prisma-studio:
+    image: node:20-alpine
+    container_name: yaatri-prisma-studio
+    working_dir: /app
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        npm install --omit=dev
+        npx prisma generate
+        exec npx prisma studio --port 5555 --browser none --url "postgresql://admin:SuperSecurePassword123!@postgres:5432/yaatri"
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend/package.json:/app/package.json
+      - ./backend/package-lock.json:/app/package-lock.json
+      - ./backend/prisma:/app/prisma
+      - prisma-studio-node-modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
-  pg_global_data:
-  redis_global_data:
-  minio_global_data:
+  yaatri-pg-data:
+  yaatri-redis-data:
+  yaatri-minio-data:
+  prisma-studio-node-modules:

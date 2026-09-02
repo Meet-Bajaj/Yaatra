@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Stepper } from "@/components/ui/stepper";
+import { AddressAutocomplete } from "@/components/maps/address-autocomplete";
 import { cn } from "@/lib/utils";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -18,6 +19,8 @@ export default function OfferSeatPage() {
   const [step, setStep] = useState(0);
   const [homeAddress, setHomeAddress] = useState("");
   const [workAddress, setWorkAddress] = useState("");
+  const [homeCoords, setHomeCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [workCoords, setWorkCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [departureTime, setDepartureTime] = useState("09:00");
   const [returnTime, setReturnTime] = useState("18:00");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
@@ -37,6 +40,10 @@ export default function OfferSeatPage() {
       api.post(API.driver.offer, {
         homeAddress,
         workAddress,
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        workLat: workCoords?.lat,
+        workLng: workCoords?.lng,
         departureTime,
         returnTime,
         days: selectedDays,
@@ -72,8 +79,24 @@ export default function OfferSeatPage() {
 
       {step === 0 && (
         <div className="space-y-4">
-          <Input label="Home Address" placeholder="Enter home address" icon={<MapPin className="h-4 w-4" />} value={homeAddress} onChange={(e) => setHomeAddress(e.target.value)} />
-          <Input label="Work Address" placeholder="Enter work address" icon={<MapPin className="h-4 w-4" />} value={workAddress} onChange={(e) => setWorkAddress(e.target.value)} />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-white/70">Home Address</label>
+            <AddressAutocomplete
+              value={homeAddress}
+              onChange={setHomeAddress}
+              onPlaceSelect={(place) => { setHomeAddress(place.address); setHomeCoords({ lat: place.lat, lng: place.lng }); }}
+              placeholder="Enter home address"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-white/70">Work Address</label>
+            <AddressAutocomplete
+              value={workAddress}
+              onChange={setWorkAddress}
+              onPlaceSelect={(place) => { setWorkAddress(place.address); setWorkCoords({ lat: place.lat, lng: place.lng }); }}
+              placeholder="Enter work address"
+            />
+          </div>
         </div>
       )}
 

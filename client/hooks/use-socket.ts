@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useLocationStore } from "@/stores/locationStore";
 import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
 
 export function useSocket() {
@@ -10,6 +11,7 @@ export function useSocket() {
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const addNotification = useNotificationStore((s) => s.addNotification);
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const setDriverPosition = useLocationStore((s) => s.setDriverPosition);
   const connectedRef = useRef(false);
 
   useEffect(() => {
@@ -40,8 +42,11 @@ export function useSocket() {
     };
 
     const onRideUpdate = (data: { rideId: string; status: string }) => {
-      // Could be used to invalidate ride queries
       console.log("[socket] ride update:", data);
+    };
+
+    const onLocationUpdate = (data: { lat: number; lng: number; speedKmh?: number; recordedAt?: string }) => {
+      setDriverPosition({ lat: data.lat, lng: data.lng, speedKmh: data.speedKmh, recordedAt: data.recordedAt });
     };
 
     socket.on("connect", onConnect);
@@ -49,6 +54,7 @@ export function useSocket() {
     socket.on("notification", onNotification);
     socket.on("unread_count", onUnreadCount);
     socket.on("ride:update", onRideUpdate);
+    socket.on("trip.location", onLocationUpdate);
 
     return () => {
       socket.off("connect", onConnect);
@@ -56,6 +62,7 @@ export function useSocket() {
       socket.off("notification", onNotification);
       socket.off("unread_count", onUnreadCount);
       socket.off("ride:update", onRideUpdate);
+      socket.off("trip.location", onLocationUpdate);
       disconnectSocket();
       connectedRef.current = false;
     };

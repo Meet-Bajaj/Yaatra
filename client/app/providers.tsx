@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSocket } from "@/hooks/use-socket";
+import { GoogleMapsProvider } from "@/components/maps/google-maps-provider";
 
 function SocketProvider({ children }: { children: React.ReactNode }) {
   useSocket();
@@ -25,7 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SocketProvider>{children}</SocketProvider>
+      <GoogleMapsProvider>
+        <SocketProvider>{children}</SocketProvider>
+      </GoogleMapsProvider>
     </QueryClientProvider>
   );
 }

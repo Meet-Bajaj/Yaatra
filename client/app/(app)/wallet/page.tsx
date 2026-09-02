@@ -36,7 +36,8 @@ export default function WalletPage() {
     queryFn: async () => {
       try {
         const res = await api.get(API.wallet.transactions);
-        return (res.data || []) as Array<{
+        const data = res.data;
+        return (Array.isArray(data) ? data : []) as Array<{
           id: string;
           type: string;
           amount: number;

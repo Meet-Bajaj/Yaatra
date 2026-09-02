@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Car, Wallet, TrendingUp } from "lucide-react";
+import { Users, Car, Wallet, FileCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -8,11 +8,14 @@ import { formatINR } from "@/lib/utils";
 
 interface AdminStats {
   totalUsers?: number;
-  activeRides?: number;
-  revenue?: number;
-  signupsToday?: number;
+  activeUsers?: number;
   totalDrivers?: number;
   totalRiders?: number;
+  totalBookings?: number;
+  completedBookings?: number;
+  pendingDocVerifications?: number;
+  openDisputes?: number;
+  totalRevenue?: number;
 }
 
 export default function AdminDashboardPage() {
@@ -29,10 +32,12 @@ export default function AdminDashboardPage() {
   });
 
   const statCards = [
-    { label: "Total Users", value: stats?.totalUsers ?? 0, icon: Users, change: "+12%" },
-    { label: "Active Rides", value: stats?.activeRides ?? 0, icon: Car, change: "+8%" },
-    { label: "Revenue", value: formatINR(stats?.revenue ?? 0), icon: Wallet, change: "+15%" },
-    { label: "Signups Today", value: stats?.signupsToday ?? 0, icon: TrendingUp, change: "+22%" },
+    { label: "Total Users", value: stats?.totalUsers ?? 0, icon: Users },
+    { label: "Active Users", value: stats?.activeUsers ?? 0, icon: Users },
+    { label: "Revenue", value: formatINR(stats?.totalRevenue ?? 0), icon: Wallet },
+    { label: "Completed Rides", value: stats?.completedBookings ?? 0, icon: Car },
+    { label: "Pending Verifications", value: stats?.pendingDocVerifications ?? 0, icon: FileCheck },
+    { label: "Open Disputes", value: stats?.openDisputes ?? 0, icon: Users },
   ];
 
   return (
@@ -52,6 +57,17 @@ export default function AdminDashboardPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+          <p className="text-xs text-white/40 mb-1">Drivers</p>
+          <p className="text-xl font-bold text-white">{stats?.totalDrivers ?? 0}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+          <p className="text-xs text-white/40 mb-1">Riders</p>
+          <p className="text-xl font-bold text-white">{stats?.totalRiders ?? 0}</p>
+        </div>
       </div>
     </div>
   );

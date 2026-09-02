@@ -12,6 +12,7 @@ import { Chip } from "@/components/ui/chip";
 import { Badge } from "@/components/ui/badge";
 import { RatingBar } from "@/components/ui/rating-bar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { RouteMap } from "@/components/maps/route-map";
 import { cn, formatINR } from "@/lib/utils";
 
 interface RideOption {
@@ -81,6 +82,10 @@ export default function RideOptionsPage() {
           </p>
         </div>
       </div>
+
+      {pickup && dropoff && (
+        <RouteMap pickup={{ lat: pickup.lat, lng: pickup.lng, address: pickup.address }} dropoff={{ lat: dropoff.lat, lng: dropoff.lng, address: dropoff.address }} height="160px" />
+      )}
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         <Chip active={filters.type === "all"} onClick={() => setFilters({ type: "all" })}>

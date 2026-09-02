@@ -2,6 +2,9 @@ export const API = {
   auth: {
     register: "/auth/register",
     login: "/auth/login",
+    otp: "/auth/otp",
+    verify: "/auth/verify",
+    resendOtp: "/auth/resend-otp",
     profile: "/auth/profile",
   },
   users: {

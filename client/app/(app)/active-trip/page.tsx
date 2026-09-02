@@ -1,28 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Share2, AlertTriangle, MapPin, Navigation, X, Check, Star } from "lucide-react";
+import { Phone, Share2, AlertTriangle, Star, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
+import { useLocationStore } from "@/stores/locationStore";
 import { Button } from "@/components/ui/button";
 import { RatingBar } from "@/components/ui/rating-bar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { LiveTrackingMap } from "@/components/maps/live-tracking-map";
 
 export default function ActiveTripPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { driverPosition } = useLocationStore();
   const [tripStatus, setTripStatus] = useState("arriving");
-  const [showCancel, setShowCancel] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
-  useEffect(() => {
-    const timer = setTimeout(() => setTripStatus("in_progress"), 3000);
-    return () => clearTimeout(timer);
-  }, []);
+  const pickup = { lat: 12.9352, lng: 77.6245 };
+  const dropoff = { lat: 12.9716, lng: 77.5946 };
 
   const cancelMutation = useMutation({
     mutationFn: (tripId: string) => api.post(API.rides.cancel(tripId)),
@@ -58,25 +58,18 @@ export default function ActiveTripPage() {
     },
   });
 
-  const handleSOS = () => {
-    navigator.vibrate?.(200);
-    sosMutation.mutate();
-  };
-
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="relative h-64 rounded-2xl border border-white/10 bg-[#0a0a0a] overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <MapPin className="mx-auto mb-2 h-8 w-8 text-white/30" />
-            <p className="text-xs text-white/40">Live map view</p>
-            <p className="text-[10px] text-white/20">Google Maps integration</p>
-          </div>
-        </div>
-        <div className="absolute bottom-3 left-3 rounded-lg bg-black/80 px-3 py-1.5 backdrop-blur-sm">
-          <p className="text-xs font-medium text-white">{tripStatus === "arriving" ? "Driver is arriving" : "Trip in progress"}</p>
-          <p className="text-[10px] text-white/50">ETA: {tripStatus === "arriving" ? "3 min" : "18 min"}</p>
-        </div>
+      <LiveTrackingMap
+        pickup={pickup}
+        dropoff={dropoff}
+        driverPosition={driverPosition}
+        height="256px"
+      />
+
+      <div className="absolute bottom-3 left-3 z-10 rounded-lg bg-black/80 px-3 py-1.5 backdrop-blur-sm">
+        <p className="text-xs font-medium text-white">{tripStatus === "arriving" ? "Driver is arriving" : "Trip in progress"}</p>
+        <p className="text-[10px] text-white/50">ETA: {tripStatus === "arriving" ? "3 min" : "18 min"}</p>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
@@ -88,101 +81,66 @@ export default function ActiveTripPage() {
             <p className="text-sm font-semibold text-white">Arjun K.</p>
             <p className="text-xs text-white/40">Swift Dzire - White - KA 01 AB 1234</p>
           </div>
-          <div className="flex items-center gap-1 text-xs text-white/50">
-            <Navigation className="h-3 w-3" /> 4.8
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 transition-colors">
-            <Phone className="h-4 w-4" /> Call
-          </button>
-          <button
-            onClick={() => shareTripMutation.mutate("current")}
-            disabled={shareTripMutation.isPending}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white hover:bg-white/5 transition-colors disabled:opacity-50"
-          >
-            <Share2 className="h-4 w-4" /> {shareTripMutation.isPending ? "Sharing..." : "Share Trip"}
-          </button>
-          <button
-            onClick={() => setShowCancel(true)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/20 py-2.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <X className="h-4 w-4" /> Cancel
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2 text-white/60">
-            <MapPin className="h-4 w-4 text-white/30" />
-            <span>Koramangala 4th Block</span>
-          </div>
-          <div className="flex items-center gap-2 text-white/60">
-            <MapPin className="h-4 w-4 text-white/30" />
-            <span>Electronic City Phase 1</span>
+          <div className="flex gap-2">
+            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/15">
+              <Phone className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => shareTripMutation.mutate("trip-1")}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/15"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
 
-      {tripStatus === "in_progress" && (
-        <Button onClick={() => setShowRating(true)} className="w-full" size="lg">
-          Mark as Complete
+      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm text-white/60">
+          <div className="h-2 w-2 rounded-full bg-green-500" />
+          <span>Koramangala 4th Block</span>
+        </div>
+        <div className="ml-1 h-4 w-px bg-white/10" />
+        <div className="flex items-center gap-2 text-sm text-white/60">
+          <div className="h-2 w-2 rounded-full bg-red-500" />
+          <span>Electronic City Phase 1</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          className="flex-1 border-red-500/30 text-red-400"
+          onClick={() => cancelMutation.mutate("trip-1")}
+        >
+          Cancel
         </Button>
-      )}
+        <Button
+          className="flex-1"
+          onClick={() => {
+            navigator.vibrate?.(200);
+            sosMutation.mutate();
+          }}
+        >
+          <AlertTriangle className="h-4 w-4" /> SOS
+        </Button>
+      </div>
 
-      <button
-        onClick={handleSOS}
-        disabled={sosMutation.isPending}
-        className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 py-4 text-center text-sm font-semibold text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
-      >
-        <AlertTriangle className="mx-auto mb-1 h-5 w-5" />
-        {sosMutation.isPending ? "Sending Alert..." : "Emergency SOS"}
-      </button>
-
-      {sosMutation.isSuccess && (
-        <div className="rounded-lg bg-green-500/10 px-4 py-3 text-sm text-green-400">
-          Emergency alert sent. Help is on the way.
-        </div>
-      )}
-
-      <BottomSheet open={showCancel} onClose={() => setShowCancel(false)} title="Cancel Ride?">
-        <p className="mb-4 text-sm text-white/50">
-          Are you sure you want to cancel? A cancellation fee may apply.
-        </p>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => setShowCancel(false)}>
-            Keep Ride
-          </Button>
-          <Button
-            variant="destructive"
-            className="flex-1"
-            onClick={() => cancelMutation.mutate("current")}
-            disabled={cancelMutation.isPending}
-          >
-            {cancelMutation.isPending ? "Cancelling..." : "Cancel Ride"}
-          </Button>
-        </div>
-      </BottomSheet>
-
-      <BottomSheet open={showRating} onClose={() => setShowRating(false)} title="Rate Your Ride">
-        <div className="flex flex-col items-center py-4">
-          <p className="mb-4 text-sm text-white/50">How was your ride with Arjun?</p>
-          <RatingBar value={rating} onChange={setRating} size="lg" interactive />
-          <input
-            type="text"
-            placeholder="Add a comment (optional)"
+      <BottomSheet open={showRating} onClose={() => setShowRating(false)} title="Rate your trip">
+        <div className="space-y-4">
+          <RatingBar value={rating} onChange={setRating} />
+          <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none"
+            placeholder="Add a comment (optional)"
+            className="h-20 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none resize-none"
           />
           <Button
-            className="mt-4 w-full"
-            onClick={() => rateMutation.mutate({ tripId: "current", score: rating, comment: comment || undefined })}
+            className="w-full"
+            onClick={() => rateMutation.mutate({ tripId: "trip-1", score: rating, comment })}
             disabled={rating === 0 || rateMutation.isPending}
           >
-            {rateMutation.isPending ? "Submitting..." : "Submit Rating"}
+            Submit Rating
           </Button>
         </div>
       </BottomSheet>

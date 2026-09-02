@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, MapPin, Clock, Repeat } from "lucide-react";
+import { Calendar, Clock, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Chip } from "@/components/ui/chip";
+import { AddressAutocomplete } from "@/components/maps/address-autocomplete";
 import { cn } from "@/lib/utils";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -14,6 +14,8 @@ export default function PlanCommutePage() {
   const router = useRouter();
   const [homeAddress, setHomeAddress] = useState("");
   const [workAddress, setWorkAddress] = useState("");
+  const [homeCoords, setHomeCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [workCoords, setWorkCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [scheduleType, setScheduleType] = useState<"single" | "recurring">("recurring");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
   const [departureTime, setDepartureTime] = useState("09:00");
@@ -28,6 +30,8 @@ export default function PlanCommutePage() {
     router.push("/plan-commute/matches");
   };
 
+  const canSearch = homeAddress && workAddress && homeCoords && workCoords;
+
   return (
     <div className="animate-fade-in space-y-6">
       <div>
@@ -36,28 +40,18 @@ export default function PlanCommutePage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <MapPin className="h-5 w-5 text-white/50" />
-          </div>
-          <Input
-            placeholder="Home address"
-            value={homeAddress}
-            onChange={(e) => setHomeAddress(e.target.value)}
-            className="border-0 bg-transparent"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-            <MapPin className="h-5 w-5 text-white/50" />
-          </div>
-          <Input
-            placeholder="Work address"
-            value={workAddress}
-            onChange={(e) => setWorkAddress(e.target.value)}
-            className="border-0 bg-transparent"
-          />
-        </div>
+        <AddressAutocomplete
+          value={homeAddress}
+          onChange={setHomeAddress}
+          onPlaceSelect={(place) => { setHomeAddress(place.address); setHomeCoords({ lat: place.lat, lng: place.lng }); }}
+          placeholder="Home address"
+        />
+        <AddressAutocomplete
+          value={workAddress}
+          onChange={setWorkAddress}
+          onPlaceSelect={(place) => { setWorkAddress(place.address); setWorkCoords({ lat: place.lat, lng: place.lng }); }}
+          placeholder="Work address"
+        />
       </div>
 
       <div>
@@ -103,7 +97,7 @@ export default function PlanCommutePage() {
         </div>
       </div>
 
-      <Button onClick={handleSearch} className="w-full" size="lg" disabled={!homeAddress || !workAddress}>
+      <Button onClick={handleSearch} className="w-full" size="lg" disabled={!canSearch}>
         Find Carpools
       </Button>
     </div>

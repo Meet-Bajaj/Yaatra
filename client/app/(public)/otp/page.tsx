@@ -48,7 +48,7 @@ function OTPContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post(API.auth.login, { phone, otp });
+      const res = await api.post(API.auth.verify, { phone, code: otp });
       const { user, access_token } = res.data;
       setAuth(user, access_token);
       router.push("/dashboard");

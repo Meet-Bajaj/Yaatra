@@ -1,30 +1,44 @@
 "use client";
 
-import { Check, X, FileText } from "lucide-react";
+import { useState } from "react";
+import { Check, X, FileText, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 interface DocEntry {
   id: string;
-  userName?: string;
+  userId: string;
   type: string;
-  uploadedAt?: string;
+  s3Key?: string;
   status: string;
+  rejectionReason?: string | null;
+  uploadedAt?: string;
+  user?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  };
 }
 
 export default function AdminVerificationPage() {
   const queryClient = useQueryClient();
+  const [selectedDoc, setSelectedDoc] = useState<DocEntry | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ["admin-docs-queue"],
     queryFn: async () => {
       try {
         const res = await api.get(API.admin.docsQueue);
-        return (Array.isArray(res.data) ? res.data : []) as DocEntry[];
+        const data = res.data;
+        const list = Array.isArray(data) ? data : data?.documents ?? [];
+        return list as DocEntry[];
       } catch {
         return [];
       }
@@ -32,10 +46,27 @@ export default function AdminVerificationPage() {
   });
 
   const verifyMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(API.admin.verifyDoc(id), { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-docs-queue"] }),
+    mutationFn: ({ id, action, rejectionReason }: { id: string; action: string; rejectionReason?: string }) =>
+      api.patch(API.admin.verifyDoc(id), { action, rejectionReason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-docs-queue"] });
+      setSelectedDoc(null);
+      setRejectReason("");
+    },
   });
+
+  const handleApprove = (doc: DocEntry) => {
+    verifyMutation.mutate({ id: doc.id, action: "PASSED" });
+  };
+
+  const handleReject = () => {
+    if (!selectedDoc) return;
+    verifyMutation.mutate({
+      id: selectedDoc.id,
+      action: "FAILED",
+      rejectionReason: rejectReason || "Document does not meet requirements",
+    });
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -57,14 +88,19 @@ export default function AdminVerificationPage() {
                     <FileText className="h-5 w-5 text-white/50" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">{doc.userName || "Unknown"}</p>
+                    <p className="text-sm font-medium text-white">
+                      {doc.user?.name || "Unknown User"}
+                    </p>
                     <p className="text-xs text-white/40">
                       {doc.type.replace("_", " ")}
-                      {doc.uploadedAt ? ` - ${doc.uploadedAt}` : ""}
+                      {doc.uploadedAt ? ` · ${new Date(doc.uploadedAt).toLocaleDateString()}` : ""}
                     </p>
+                    {doc.user?.phone && (
+                      <p className="text-[10px] text-white/30">{doc.user.phone}</p>
+                    )}
                   </div>
                 </div>
-                <Badge variant={doc.status === "PENDING" ? "warning" : "success"}>
+                <Badge variant={doc.status === "PENDING" ? "warning" : doc.status === "PASSED" ? "success" : "destructive"}>
                   {doc.status}
                 </Badge>
               </div>
@@ -75,7 +111,10 @@ export default function AdminVerificationPage() {
                     variant="outline"
                     size="sm"
                     className="flex-1"
-                    onClick={() => verifyMutation.mutate({ id: doc.id, status: "REJECTED" })}
+                    onClick={() => {
+                      setSelectedDoc(doc);
+                      setRejectReason("");
+                    }}
                     disabled={verifyMutation.isPending}
                   >
                     <X className="h-4 w-4" /> Reject
@@ -83,12 +122,18 @@ export default function AdminVerificationPage() {
                   <Button
                     size="sm"
                     className="flex-1"
-                    onClick={() => verifyMutation.mutate({ id: doc.id, status: "APPROVED" })}
+                    onClick={() => handleApprove(doc)}
                     disabled={verifyMutation.isPending}
                   >
                     <Check className="h-4 w-4" /> Approve
                   </Button>
                 </div>
+              )}
+
+              {doc.status === "FAILED" && doc.rejectionReason && (
+                <p className="text-xs text-red-400/70 mt-2">
+                  Rejected: {doc.rejectionReason}
+                </p>
               )}
             </div>
           ))}
@@ -96,6 +141,33 @@ export default function AdminVerificationPage() {
       ) : (
         <EmptyState icon={<FileText className="h-12 w-12" />} title="No documents in queue" />
       )}
+
+      {/* Reject Reason Bottom Sheet */}
+      <BottomSheet
+        open={!!selectedDoc}
+        onClose={() => { setSelectedDoc(null); setRejectReason(""); }}
+        title="Reject Document"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-white/50">
+            Provide a reason for rejecting {selectedDoc?.user?.name}&apos;s {selectedDoc?.type?.replace("_", " ")} document.
+          </p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="e.g. Document is blurry, expired, or illegible..."
+            className="h-24 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none"
+          />
+          <Button
+            variant="outline"
+            className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+            onClick={handleReject}
+            disabled={verifyMutation.isPending}
+          >
+            {verifyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Rejection"}
+          </Button>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

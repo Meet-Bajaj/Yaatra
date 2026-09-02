@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Trash2, Home, Briefcase, MapPin, Building } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -8,14 +8,16 @@ import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/maps/address-autocomplete";
 import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/utils";
 
 interface SavedPlace {
   id: string;
   label: string;
   name: string;
   address: string;
+  lat?: number;
+  lng?: number;
 }
 
 const iconMap: Record<string, typeof Home> = {
@@ -30,6 +32,7 @@ export default function PlacesPage() {
   const [newLabel, setNewLabel] = useState("");
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
+  const [newCoords, setNewCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
 
   const { data: places, isLoading } = useQuery({
@@ -37,7 +40,8 @@ export default function PlacesPage() {
     queryFn: async () => {
       try {
         const res = await api.get(API.users.places);
-        return res.data as SavedPlace[];
+        const data = res.data;
+        return (Array.isArray(data) ? data : []) as SavedPlace[];
       } catch {
         return [];
       }
@@ -45,7 +49,7 @@ export default function PlacesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { label: string; name: string; address: string }) =>
+    mutationFn: (data: { label: string; name: string; address: string; lat: number; lng: number }) =>
       api.post(API.users.places, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["places"] });
@@ -63,12 +67,13 @@ export default function PlacesPage() {
     setNewLabel("");
     setNewName("");
     setNewAddress("");
+    setNewCoords(null);
     setEditId(null);
   };
 
   const handleSave = () => {
-    if (!newName || !newAddress) return;
-    createMutation.mutate({ label: newLabel || newName, name: newName, address: newAddress });
+    if (!newName || !newAddress || !newCoords) return;
+    createMutation.mutate({ label: newLabel || newName, name: newName, address: newAddress, lat: newCoords.lat, lng: newCoords.lng });
   };
 
   const getIcon = (label: string) => iconMap[label] || MapPin;
@@ -120,11 +125,16 @@ export default function PlacesPage() {
         <div className="space-y-3">
           <Input placeholder="Label (e.g. Home, Work)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
           <Input placeholder="Place name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-          <Input placeholder="Address" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
+          <AddressAutocomplete
+            value={newAddress}
+            onChange={setNewAddress}
+            onPlaceSelect={(place) => { setNewAddress(place.address); setNewCoords({ lat: place.lat, lng: place.lng }); }}
+            placeholder="Search address"
+          />
           <Button
             className="w-full"
             onClick={handleSave}
-            disabled={!newName || !newAddress || createMutation.isPending}
+            disabled={!newName || !newAddress || !newCoords || createMutation.isPending}
           >
             {createMutation.isPending ? "Saving..." : "Save Place"}
           </Button>

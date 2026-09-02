@@ -69,8 +69,8 @@ export default function AdminVerificationPage() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">Document Verification</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">Document Verification</h1>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -79,24 +79,24 @@ export default function AdminVerificationPage() {
           ))}
         </div>
       ) : docs.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {docs.map((doc) => (
-            <div key={doc.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+            <div key={doc.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 sm:p-4">
               <div className="mb-3 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-                    <FileText className="h-5 w-5 text-white/50" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 shrink-0">
+                    <FileText className="h-5 w-5 text-white/60" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
                       {doc.user?.name || "Unknown User"}
                     </p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-white/50">
                       {doc.type.replace("_", " ")}
                       {doc.uploadedAt ? ` · ${new Date(doc.uploadedAt).toLocaleDateString()}` : ""}
                     </p>
                     {doc.user?.phone && (
-                      <p className="text-[10px] text-white/30">{doc.user.phone}</p>
+                      <p className="text-[10px] text-white/40">{doc.user.phone}</p>
                     )}
                   </div>
                 </div>
@@ -139,28 +139,28 @@ export default function AdminVerificationPage() {
           ))}
         </div>
       ) : (
-        <EmptyState icon={<FileText className="h-12 w-12" />} title="No documents in queue" />
+        <EmptyState icon={<FileText className="h-12 h-12" />} title="No documents in queue" />
       )}
 
-      {/* Reject Reason Bottom Sheet */}
       <BottomSheet
         open={!!selectedDoc}
         onClose={() => { setSelectedDoc(null); setRejectReason(""); }}
         title="Reject Document"
       >
         <div className="space-y-4">
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-white/60">
             Provide a reason for rejecting {selectedDoc?.user?.name}&apos;s {selectedDoc?.type?.replace("_", " ")} document.
           </p>
           <textarea
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="e.g. Document is blurry, expired, or illegible..."
-            className="h-24 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none"
+            className="h-24 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none touch-target"
           />
           <Button
             variant="outline"
             className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+            size="lg"
             onClick={handleReject}
             disabled={verifyMutation.isPending}
           >

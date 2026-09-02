@@ -22,6 +22,7 @@ export const API = {
     earnings: "/users/me/earnings",
     vehicles: "/users/me/vehicles",
     vehicleById: (id: string) => `/users/me/vehicles/${id}`,
+    avatar: "/users/me/avatar",
   },
   documents: {
     list: "/users/me/documents",

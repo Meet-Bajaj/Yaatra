@@ -25,11 +25,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             className={cn(
-              "flex h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white",
-              "placeholder:text-white/30",
+              "flex h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white md:h-11",
+              "placeholder:text-white/40",
               "transition-colors duration-200",
               "focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20",
               "disabled:cursor-not-allowed disabled:opacity-50",
+              "touch-target",
               icon && "pl-10",
               error && "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20",
               className
@@ -37,7 +38,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
         </div>
-        {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+        {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
       </div>
     );
   }

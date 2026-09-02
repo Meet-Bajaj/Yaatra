@@ -41,8 +41,8 @@ export default function DriverRequestsPage() {
   });
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">Incoming Requests</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">Incoming Requests</h1>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -51,19 +51,19 @@ export default function DriverRequestsPage() {
           ))}
         </div>
       ) : requests.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {requests.map((request) => (
-            <div key={request.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+            <div key={request.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 sm:p-4">
               <div className="mb-3 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
                   {request.riderName?.[0] || "?"}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-white">{request.riderName}</p>
-                  <p className="text-xs text-white/40">{request.route}</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{request.riderName}</p>
+                  <p className="text-xs text-white/50 truncate">{request.route}</p>
                 </div>
               </div>
-              <p className="mb-3 text-xs text-white/40">{request.time}</p>
+              <p className="mb-3 text-xs text-white/50">{request.time}</p>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

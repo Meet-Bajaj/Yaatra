@@ -69,8 +69,8 @@ export default function AdminDisputesPage() {
   ];
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">Disputes</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">Disputes</h1>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -79,23 +79,23 @@ export default function AdminDisputesPage() {
           ))}
         </div>
       ) : disputes.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {disputes.map((dispute) => (
             <button
               key={dispute.id}
               onClick={() => { setSelectedDispute(dispute); setResolution(""); }}
-              className="w-full rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 text-left hover:bg-white/5 transition-colors"
+              className="w-full rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 text-left hover:bg-white/5 active:bg-white/10 transition-colors touch-target sm:p-4"
             >
               <div className="mb-3 flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 shrink-0">
                     <AlertTriangle className="h-5 w-5 text-red-400" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">
                       {dispute.paymentStatus === "FAILED" ? "Payment Failed" : "Payment Pending"}
                     </p>
-                    <p className="text-xs text-white/40">
+                    <p className="text-xs text-white/50">
                       {dispute.createdAt ? new Date(dispute.createdAt).toLocaleDateString() : ""}
                     </p>
                   </div>
@@ -119,7 +119,6 @@ export default function AdminDisputesPage() {
         <EmptyState title="No open disputes" />
       )}
 
-      {/* Resolve Bottom Sheet */}
       <BottomSheet
         open={!!selectedDispute}
         onClose={() => { setSelectedDispute(null); setResolution(""); }}
@@ -140,7 +139,7 @@ export default function AdminDisputesPage() {
                 <button
                   key={r.value}
                   onClick={() => setResolution(r.value)}
-                  className={`w-full rounded-xl border p-3 text-left transition-all ${
+                  className={`w-full rounded-xl border p-3.5 text-left transition-all touch-target ${
                     resolution === r.value
                       ? "border-white bg-white/10"
                       : "border-white/10 bg-white/5 hover:border-white/20"
@@ -149,13 +148,14 @@ export default function AdminDisputesPage() {
                   <p className={`text-sm font-medium ${resolution === r.value ? "text-white" : "text-white/70"}`}>
                     {r.label}
                   </p>
-                  <p className="text-xs text-white/40">{r.desc}</p>
+                  <p className="text-xs text-white/50">{r.desc}</p>
                 </button>
               ))}
             </div>
 
             <Button
               className="w-full"
+              size="lg"
               onClick={() => {
                 if (!resolution) return;
                 resolveMutation.mutate({ id: selectedDispute.id, resolution });

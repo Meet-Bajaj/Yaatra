@@ -18,11 +18,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   if (hasHydrated && token) return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4">
+    <div className="flex min-h-dvh items-center justify-center bg-black px-4 py-8">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Yaatra</h1>
-          <p className="mt-2 text-sm text-white/50">Smart rides, shared smarter</p>
+          <p className="mt-2 text-sm text-white/60">Smart rides, shared smarter</p>
         </div>
         {children}
       </div>

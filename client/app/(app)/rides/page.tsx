@@ -53,14 +53,14 @@ export default function RidesPage() {
   const isLoading = tab === "upcoming" ? loadingUpcoming : loadingHistory;
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">My Rides</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">My Rides</h1>
 
       <div className="flex gap-1 rounded-xl bg-white/5 p-1">
         <button
           onClick={() => setTab("upcoming")}
           className={cn(
-            "flex-1 rounded-lg py-2.5 text-sm font-medium transition-all",
+            "flex-1 rounded-lg py-3 text-sm font-medium transition-all touch-target md:py-2.5",
             tab === "upcoming" ? "bg-white text-black" : "text-white/50 hover:text-white"
           )}
         >
@@ -69,7 +69,7 @@ export default function RidesPage() {
         <button
           onClick={() => setTab("history")}
           className={cn(
-            "flex-1 rounded-lg py-2.5 text-sm font-medium transition-all",
+            "flex-1 rounded-lg py-3 text-sm font-medium transition-all touch-target md:py-2.5",
             tab === "history" ? "bg-white text-black" : "text-white/50 hover:text-white"
           )}
         >
@@ -84,12 +84,12 @@ export default function RidesPage() {
           ))}
         </div>
       ) : rides.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {rides.map((ride) => (
             <button
               key={ride.id}
               onClick={() => router.push(`/rides/${ride.id}`)}
-              className="w-full text-left rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 transition-colors hover:border-white/20"
+              className="w-full text-left rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 transition-colors hover:border-white/20 active:bg-white/5 sm:p-4 touch-target"
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-xs text-white/50">
@@ -106,7 +106,7 @@ export default function RidesPage() {
                 {ride.pickupAddress || "Pickup"} → {ride.dropoffAddress || "Dropoff"}
               </p>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-white/50">
                   {ride.driver?.name ? `Driver: ${ride.driver.name}` : ""}
                 </p>
                 {ride.fare != null && (

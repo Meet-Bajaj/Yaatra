@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Share2, AlertTriangle, Star, X } from "lucide-react";
+import { Phone, Share2, AlertTriangle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -60,34 +60,36 @@ export default function ActiveTripPage() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <LiveTrackingMap
-        pickup={pickup}
-        dropoff={dropoff}
-        driverPosition={driverPosition}
-        height="256px"
-      />
-
-      <div className="absolute bottom-3 left-3 z-10 rounded-lg bg-black/80 px-3 py-1.5 backdrop-blur-sm">
-        <p className="text-xs font-medium text-white">{tripStatus === "arriving" ? "Driver is arriving" : "Trip in progress"}</p>
-        <p className="text-[10px] text-white/50">ETA: {tripStatus === "arriving" ? "3 min" : "18 min"}</p>
+      <div className="relative">
+        <LiveTrackingMap
+          pickup={pickup}
+          dropoff={dropoff}
+          driverPosition={driverPosition}
+          height="220px"
+          className="md:h-[256px]"
+        />
+        <div className="absolute bottom-3 left-3 z-10 rounded-lg bg-black/80 px-3 py-1.5 backdrop-blur-sm">
+          <p className="text-xs font-medium text-white">{tripStatus === "arriving" ? "Driver is arriving" : "Trip in progress"}</p>
+          <p className="text-[10px] text-white/50">ETA: {tripStatus === "arriving" ? "3 min" : "18 min"}</p>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
             A
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white">Arjun K.</p>
-            <p className="text-xs text-white/40">Swift Dzire - White - KA 01 AB 1234</p>
+            <p className="text-xs text-white/50 truncate">Swift Dzire - White - KA 01 AB 1234</p>
           </div>
-          <div className="flex gap-2">
-            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/15">
+          <div className="flex gap-2 shrink-0">
+            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target">
               <Phone className="h-4 w-4" />
             </button>
             <button
               onClick={() => shareTripMutation.mutate("trip-1")}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/50 hover:bg-white/15"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target"
             >
               <Share2 className="h-4 w-4" />
             </button>
@@ -97,12 +99,12 @@ export default function ActiveTripPage() {
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm text-white/60">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
+          <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
           <span>Koramangala 4th Block</span>
         </div>
         <div className="ml-1 h-4 w-px bg-white/10" />
         <div className="flex items-center gap-2 text-sm text-white/60">
-          <div className="h-2 w-2 rounded-full bg-red-500" />
+          <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
           <span>Electronic City Phase 1</span>
         </div>
       </div>
@@ -133,10 +135,11 @@ export default function ActiveTripPage() {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Add a comment (optional)"
-            className="h-20 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none resize-none"
+            className="h-24 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none resize-none touch-target"
           />
           <Button
             className="w-full"
+            size="lg"
             onClick={() => rateMutation.mutate({ tripId: "trip-1", score: rating, comment })}
             disabled={rating === 0 || rateMutation.isPending}
           >

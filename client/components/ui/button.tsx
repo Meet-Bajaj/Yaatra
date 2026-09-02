@@ -14,21 +14,22 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
           "disabled:pointer-events-none disabled:opacity-40",
-          "active:scale-[0.98]",
+          "active:scale-[0.97] active:transition-transform active:duration-100",
+          "select-none cursor-pointer",
           {
-            "bg-white text-black hover:bg-white/90": variant === "default",
+            "bg-white text-black hover:bg-white/90 shadow-lg shadow-white/5": variant === "default",
             "border border-white/20 bg-transparent text-white hover:bg-white/10":
               variant === "outline",
             "bg-transparent text-white hover:bg-white/10": variant === "ghost",
-            "bg-red-600 text-white hover:bg-red-700": variant === "destructive",
+            "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/20": variant === "destructive",
           },
           {
-            "h-9 px-4 text-sm": size === "sm",
-            "h-11 px-6 text-sm": size === "md",
-            "h-13 px-8 text-base": size === "lg",
-            "h-10 w-10 p-0": size === "icon",
+            "h-10 px-4 text-sm": size === "sm",
+            "h-12 px-6 text-sm md:h-11": size === "md",
+            "h-14 px-8 text-base md:h-13": size === "lg",
+            "h-11 w-11 p-0": size === "icon",
           },
           className
         )}

@@ -79,11 +79,11 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Notifications</h1>
+        <h1 className="text-xl font-bold text-white md:text-2xl">Notifications</h1>
         {notifications.some((n) => !n.readAt) && (
-          <button onClick={markAllRead} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors">
+          <button onClick={markAllRead} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors touch-target">
             <CheckCheck className="h-4 w-4" /> Mark all read
           </button>
         )}
@@ -115,19 +115,19 @@ export default function NotificationsPage() {
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                   notification.readAt ? "bg-white/5" : "bg-white/10"
                 )}>
-                  <Icon className="h-5 w-5 text-white/50" />
+                  <Icon className="h-5 w-5 text-white/60" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className={cn("text-sm font-medium", notification.readAt ? "text-white/70" : "text-white")}>
+                    <p className={cn("text-sm font-medium", notification.readAt ? "text-white/60" : "text-white")}>
                       {payload.title || config.title}
                     </p>
                     {!notification.readAt && (
-                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-white shrink-0" />
                     )}
                   </div>
-                  <p className="text-xs text-white/40 line-clamp-2">{payload.message || ""}</p>
-                  <p className="mt-1 text-[10px] text-white/30">{formatTimeAgo(notification.createdAt)}</p>
+                  <p className="text-xs text-white/50 line-clamp-2">{payload.message || ""}</p>
+                  <p className="mt-1 text-[10px] text-white/40">{formatTimeAgo(notification.createdAt)}</p>
                 </div>
               </div>
             );

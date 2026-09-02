@@ -47,8 +47,8 @@ export default function DriverOffersPage() {
   });
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">My Offers</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">My Offers</h1>
 
       {isLoading ? (
         <div className="space-y-3">
@@ -57,17 +57,17 @@ export default function DriverOffersPage() {
           ))}
         </div>
       ) : offers.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {offers.map((offer) => (
-            <div key={offer.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+            <div key={offer.id} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 sm:p-4">
               <div className="mb-3 flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white truncate">
                     {offer.route || `${offer.homeAddress || "Home"} to ${offer.workAddress || "Work"}`}
                   </p>
-                  <p className="text-xs text-white/40">{offer.time || offer.days?.join(", ")}</p>
+                  <p className="text-xs text-white/50">{offer.time || offer.days?.join(", ")}</p>
                 </div>
-                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", offer.active ? "bg-green-500/15 text-green-400" : "bg-white/10 text-white/40")}>
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0 ml-2", offer.active ? "bg-green-500/15 text-green-400" : "bg-white/10 text-white/50")}>
                   {offer.active ? "Active" : "Paused"}
                 </span>
               </div>
@@ -81,7 +81,7 @@ export default function DriverOffersPage() {
                 <button
                   onClick={() => toggleMutation.mutate({ id: offer.id, active: !offer.active })}
                   disabled={toggleMutation.isPending}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 touch-target"
                 >
                   {offer.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </button>
@@ -90,7 +90,7 @@ export default function DriverOffersPage() {
                     if (confirm("Delete this offer?")) deleteMutation.mutate(offer.id);
                   }}
                   disabled={deleteMutation.isPending}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50 touch-target"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

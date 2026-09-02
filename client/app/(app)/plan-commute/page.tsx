@@ -33,13 +33,13 @@ export default function PlanCommutePage() {
   const canSearch = homeAddress && workAddress && homeCoords && workCoords;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Plan Commute</h1>
-        <p className="text-sm text-white/50">Set up your daily carpool schedule</p>
+        <h1 className="text-xl font-bold text-white md:text-2xl">Plan Commute</h1>
+        <p className="text-sm text-white/60">Set up your daily carpool schedule</p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-3 space-y-3 md:p-4">
         <AddressAutocomplete
           value={homeAddress}
           onChange={setHomeAddress}
@@ -65,16 +65,16 @@ export default function PlanCommutePage() {
         </div>
 
         {scheduleType === "recurring" && (
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-1.5 sm:gap-2 mb-4">
             {days.map((day) => (
               <button
                 key={day}
                 onClick={() => toggleDay(day)}
                 className={cn(
-                  "h-9 w-9 rounded-lg text-xs font-medium transition-all",
+                  "h-10 w-10 rounded-lg text-xs font-medium transition-all sm:h-9 sm:w-9 touch-target",
                   selectedDays.includes(day)
                     ? "bg-white text-black"
-                    : "bg-white/5 text-white/40 hover:bg-white/10"
+                    : "bg-white/5 text-white/50 hover:bg-white/10"
                 )}
               >
                 {day}
@@ -84,14 +84,14 @@ export default function PlanCommutePage() {
         )}
 
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-          <Clock className="h-5 w-5 text-white/30" />
+          <Clock className="h-5 w-5 text-white/50" />
           <div className="flex-1">
             <p className="text-xs text-white/50">Departure Time</p>
             <input
               type="time"
               value={departureTime}
               onChange={(e) => setDepartureTime(e.target.value)}
-              className="bg-transparent text-sm text-white focus:outline-none"
+              className="bg-transparent text-sm text-white focus:outline-none touch-target"
             />
           </div>
         </div>

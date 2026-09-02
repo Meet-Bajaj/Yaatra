@@ -8,8 +8,8 @@
   --color-surface-hover: #1a1a1a;
   --color-border: #262626;
   --color-border-subtle: #1a1a1a;
-  --color-muted: #737373;
-  --color-muted-foreground: #a3a3a3;
+  --color-muted: #a3a3a3;
+  --color-muted-foreground: #d4d4d4;
   --color-accent: #ffffff;
   --color-accent-foreground: #000000;
   --color-destructive: #ef4444;
@@ -17,10 +17,16 @@
   --color-warning: #eab308;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --spacing-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * {
   border-color: var(--color-border);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -29,10 +35,12 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: contain;
+  touch-action: manipulation;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -41,7 +49,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #333;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 ::selection {
@@ -69,6 +77,16 @@ body {
   to { transform: translateY(0); }
 }
 
+@keyframes slide-in-bottom {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 .animate-shimmer {
   background: linear-gradient(90deg, #141414 25%, #1a1a1a 50%, #141414 75%);
   background-size: 200% 100%;
@@ -81,4 +99,21 @@ body {
 
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-bottom 0.25s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }

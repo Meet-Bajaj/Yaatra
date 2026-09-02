@@ -28,7 +28,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // OTP state
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpAttempts, setOtpAttempts] = useState(0);
@@ -37,10 +36,8 @@ export default function LoginPage() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const canResend = resendCountdown <= 0 && !locked;
 
-  // Phone is shared between both modes
   const [phone, setPhone] = useState("");
 
-  // Password form (phone is managed by local state, only password through react-hook-form)
   const {
     register,
     handleSubmit,
@@ -49,14 +46,12 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema.pick({ password: true })),
   });
 
-  // Resend countdown
   useEffect(() => {
     if (resendCountdown <= 0) return;
     const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
 
-  // Lockout timer
   useEffect(() => {
     if (lockoutTimer <= 0) {
       if (locked) setLocked(false);
@@ -67,8 +62,6 @@ export default function LoginPage() {
   }, [lockoutTimer, locked]);
 
   const formatPhone = (p: string) => (p.startsWith("+") ? p : `+91${p}`);
-
-  // ─── OTP Flow ────────────────────────────────────────────
 
   const handleSendOtp = async () => {
     if (!phone || phone.length < 10) {
@@ -130,8 +123,6 @@ export default function LoginPage() {
     }
   };
 
-  // ─── Password Flow ───────────────────────────────────────
-
   const onSubmitPassword = async (data: { password: string }) => {
     setLoading(true);
     setError("");
@@ -150,8 +141,6 @@ export default function LoginPage() {
     }
   };
 
-  // ─── Mode Switch ─────────────────────────────────────────
-
   const switchMode = (newMode: LoginMode) => {
     if (newMode === mode) return;
     setMode(newMode);
@@ -165,155 +154,157 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="animate-fade-in rounded-2xl border border-white/10 bg-[#0a0a0a] p-8">
-      <h2 className="mb-6 text-xl font-semibold text-white">Sign In</h2>
-
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {/* Phone Number (shared) */}
-      <div className="mb-4">
-        <label className="mb-1.5 block text-sm font-medium text-white/70">Phone Number</label>
-        <div className="flex">
-          <span className="flex h-11 items-center rounded-l-xl border border-r-0 border-white/10 bg-white/5 px-3 text-sm text-white/50">
-            +91
-          </span>
-          <input
-            type="tel"
-            placeholder="98765 43210"
-            maxLength={10}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-            className="flex h-11 flex-1 rounded-r-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20"
-          />
-        </div>
+    <div className="animate-fade-in mx-auto w-full max-w-md px-4 py-8 md:px-8 md:py-12">
+      <div className="mb-8 text-center md:text-left">
+        <h1 className="mb-2 text-2xl font-bold text-white md:text-3xl">Welcome back</h1>
+        <p className="text-sm text-white/60">Sign in to your Yaatra account</p>
       </div>
 
-      {/* Mode Tabs */}
-      <div className="mb-6 flex rounded-xl border border-white/10 bg-white/5 p-1">
-        <button
-          onClick={() => switchMode("otp")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all",
-            mode === "otp"
-              ? "bg-white text-black"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          <MessageSquare className="h-4 w-4" />
-          OTP
-        </button>
-        <button
-          onClick={() => switchMode("password")}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all",
-            mode === "password"
-              ? "bg-white text-black"
-              : "text-white/50 hover:text-white/70"
-          )}
-        >
-          <KeyRound className="h-4 w-4" />
-          Password
-        </button>
-      </div>
+      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-5 md:p-8">
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
 
-      {/* OTP Mode */}
-      {mode === "otp" && (
-        <div className="space-y-4">
-          {!otpSent ? (
-            <Button
-              onClick={handleSendOtp}
-              className="w-full"
-              size="lg"
-              disabled={loading || !phone || phone.length < 10}
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send OTP"}
-            </Button>
-          ) : (
-            <>
-              <p className="text-center text-sm text-white/50">
-                Enter the 6-digit code sent to <span className="text-white">+91 {phone}</span>
-              </p>
+        <div className="mb-5">
+          <label className="mb-1.5 block text-sm font-medium text-white/70">Phone Number</label>
+          <div className="flex">
+            <span className="flex h-12 items-center rounded-l-xl border border-r-0 border-white/10 bg-white/5 px-3 text-sm text-white/60 md:h-11">
+              +91
+            </span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="98765 43210"
+              maxLength={10}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              className="flex h-12 flex-1 rounded-r-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 md:h-11 touch-target"
+            />
+          </div>
+        </div>
 
-              {locked ? (
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                  <Lock className="h-8 w-8 text-red-400" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-red-400">Account temporarily locked</p>
-                    <p className="mt-1 text-xs text-white/40">
-                      Try again in {Math.floor(lockoutTimer / 60)}:{String(lockoutTimer % 60).padStart(2, "0")}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex justify-center">
-                  <OTPInput value={otp} onChange={setOtp} />
-                </div>
-              )}
+        <div className="mb-6 flex rounded-xl border border-white/10 bg-white/5 p-1">
+          <button
+            onClick={() => switchMode("otp")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium transition-all touch-target md:py-2.5",
+              mode === "otp"
+                ? "bg-white text-black"
+                : "text-white/50 hover:text-white/70"
+            )}
+          >
+            <MessageSquare className="h-4 w-4" />
+            OTP
+          </button>
+          <button
+            onClick={() => switchMode("password")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium transition-all touch-target md:py-2.5",
+              mode === "password"
+                ? "bg-white text-black"
+                : "text-white/50 hover:text-white/70"
+            )}
+          >
+            <KeyRound className="h-4 w-4" />
+            Password
+          </button>
+        </div>
 
+        {mode === "otp" && (
+          <div className="space-y-4">
+            {!otpSent ? (
               <Button
-                onClick={handleVerifyOtp}
+                onClick={handleSendOtp}
                 className="w-full"
                 size="lg"
-                disabled={otp.length !== 6 || loading || locked}
+                disabled={loading || !phone || phone.length < 10}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send OTP"}
               </Button>
-
-              <div className="text-center">
-                {canResend ? (
-                  <button
-                    onClick={handleResendOtp}
-                    className="flex items-center gap-1.5 mx-auto text-sm font-medium text-white hover:underline"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Resend OTP
-                  </button>
-                ) : (
-                  <p className="text-sm text-white/40">
-                    Resend OTP in <span className="font-medium text-white">{resendCountdown}s</span>
-                  </p>
-                )}
-              </div>
-
-              {otpAttempts > 0 && !locked && (
-                <p className="text-center text-[10px] text-white/30">
-                  {MAX_OTP_ATTEMPTS - otpAttempts} attempt{MAX_OTP_ATTEMPTS - otpAttempts !== 1 ? "s" : ""} remaining before lockout
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Password Mode */}
-      {mode === "password" && (
-        <form onSubmit={handleSubmit(onSubmitPassword)} className="space-y-4">
-          <Input
-            label="Password"
-            placeholder="Enter your password"
-            type="password"
-            {...register("password")}
-            error={errors.password?.message}
-          />
-
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                Sign In
-                <ArrowRight className="h-4 w-4" />
+                <p className="text-center text-sm text-white/60">
+                  Enter the 6-digit code sent to <span className="text-white">+91 {phone}</span>
+                </p>
+
+                {locked ? (
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+                    <Lock className="h-8 w-8 text-red-400" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-red-400">Account temporarily locked</p>
+                      <p className="mt-1 text-xs text-white/50">
+                        Try again in {Math.floor(lockoutTimer / 60)}:{String(lockoutTimer % 60).padStart(2, "0")}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-center">
+                    <OTPInput value={otp} onChange={setOtp} />
+                  </div>
+                )}
+
+                <Button
+                  onClick={handleVerifyOtp}
+                  className="w-full"
+                  size="lg"
+                  disabled={otp.length !== 6 || loading || locked}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                </Button>
+
+                <div className="text-center">
+                  {canResend ? (
+                    <button
+                      onClick={handleResendOtp}
+                      className="flex items-center gap-1.5 mx-auto text-sm font-medium text-white hover:underline touch-target"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Resend OTP
+                    </button>
+                  ) : (
+                    <p className="text-sm text-white/50">
+                      Resend OTP in <span className="font-medium text-white">{resendCountdown}s</span>
+                    </p>
+                  )}
+                </div>
+
+                {otpAttempts > 0 && !locked && (
+                  <p className="text-center text-[10px] text-white/40">
+                    {MAX_OTP_ATTEMPTS - otpAttempts} attempt{MAX_OTP_ATTEMPTS - otpAttempts !== 1 ? "s" : ""} remaining before lockout
+                  </p>
+                )}
               </>
             )}
-          </Button>
-        </form>
-      )}
+          </div>
+        )}
 
-      <p className="mt-6 text-center text-sm text-white/40">
+        {mode === "password" && (
+          <form onSubmit={handleSubmit(onSubmitPassword)} className="space-y-4">
+            <Input
+              label="Password"
+              placeholder="Enter your password"
+              type="password"
+              {...register("password")}
+              error={errors.password?.message}
+            />
+
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </form>
+        )}
+      </div>
+
+      <p className="mt-6 text-center text-sm text-white/50">
         Don&apos;t have an account?{" "}
         <Link href="/register" className="font-medium text-white hover:underline">
           Register

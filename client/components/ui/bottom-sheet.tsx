@@ -43,29 +43,31 @@ function BottomSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center pb-safe">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       <div
         ref={ref}
         className={cn(
-          "relative w-full max-w-lg rounded-t-2xl bg-[#0a0a0a] border-t border-white/10 p-6 animate-slide-up",
+          "relative w-full max-w-lg rounded-t-3xl bg-[#0a0a0a] border-t border-white/10 p-6 animate-slide-up",
+          "max-h-[85dvh] overflow-y-auto",
           className
         )}
       >
-        <div className="mb-4 flex items-center justify-between">
-          {title && (
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-          )}
-          <button
-            onClick={onClose}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 hover:text-white transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="mb-5 flex items-center justify-between">
+          <div className="mx-auto h-1 w-10 rounded-full bg-white/20 md:hidden" />
         </div>
+        {title && (
+          <h2 className="mb-4 text-lg font-semibold text-white">{title}</h2>
+        )}
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 hover:text-white transition-colors touch-target"
+        >
+          <X className="h-5 w-5" />
+        </button>
         {children}
       </div>
     </div>

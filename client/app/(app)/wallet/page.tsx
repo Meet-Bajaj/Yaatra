@@ -63,12 +63,12 @@ export default function WalletPage() {
   const recentTxns = transactions.slice(0, 3);
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">Wallet</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">Wallet</h1>
 
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-6">
-        <p className="mb-1 text-sm text-white/50">Available Balance</p>
-        <p className="mb-4 text-4xl font-bold text-white">
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-5 md:p-6">
+        <p className="mb-1 text-sm text-white/60">Available Balance</p>
+        <p className="mb-4 text-3xl font-bold text-white md:text-4xl">
           {isLoading ? "—" : formatINR(balance)}
         </p>
         <div className="flex gap-2">
@@ -84,11 +84,11 @@ export default function WalletPage() {
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-white">Auto Payment</h3>
-          <button className="relative h-6 w-11 rounded-full bg-white/20 transition-colors">
-            <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform" />
+          <button className="relative h-7 w-12 rounded-full bg-white/20 transition-colors touch-target">
+            <span className="absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white transition-transform" />
           </button>
         </div>
-        <p className="text-xs text-white/40">Automatically pay for rides from your wallet</p>
+        <p className="text-xs text-white/50">Automatically pay for rides from your wallet</p>
       </div>
 
       <div>
@@ -97,7 +97,7 @@ export default function WalletPage() {
           {transactions.length > 0 && (
             <button
               onClick={() => router.push("/wallet/transactions")}
-              className="flex items-center gap-1 text-xs text-white/40 hover:text-white transition-colors"
+              className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors touch-target"
             >
               View all <ArrowRight className="h-3 w-3" />
             </button>
@@ -108,21 +108,21 @@ export default function WalletPage() {
             {recentTxns.map((txn) => (
               <div key={txn.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
                 <div className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl",
+                  "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
                   txn.amount > 0 ? "bg-green-500/10" : "bg-white/5"
                 )}>
                   {txn.amount > 0 ? (
                     <ArrowDownLeft className="h-5 w-5 text-green-400" />
                   ) : (
-                    <ArrowUpRight className="h-5 w-5 text-white/50" />
+                    <ArrowUpRight className="h-5 w-5 text-white/60" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{txn.description}</p>
-                  <p className="text-xs text-white/40">{new Date(txn.createdAt).toLocaleDateString()}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{txn.description}</p>
+                  <p className="text-xs text-white/50">{new Date(txn.createdAt).toLocaleDateString()}</p>
                 </div>
                 <p className={cn(
-                  "text-sm font-semibold",
+                  "text-sm font-semibold shrink-0",
                   txn.amount > 0 ? "text-green-400" : "text-white"
                 )}>
                   {txn.amount > 0 ? "+" : ""}{formatINR(txn.amount)}
@@ -143,7 +143,7 @@ export default function WalletPage() {
                 key={amount}
                 onClick={() => setSelectedAmount(amount)}
                 className={cn(
-                  "rounded-xl border py-3 text-center text-sm font-semibold transition-all",
+                  "rounded-xl border py-3.5 text-center text-sm font-semibold transition-all touch-target",
                   selectedAmount === amount
                     ? "border-white bg-white text-black"
                     : "border-white/10 bg-white/5 text-white hover:border-white/20"
@@ -154,15 +154,16 @@ export default function WalletPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-sm text-white hover:bg-white/5 transition-colors">
+            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3.5 text-sm text-white hover:bg-white/5 transition-colors touch-target">
               <Smartphone className="h-4 w-4" /> UPI
             </button>
-            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-sm text-white hover:bg-white/5 transition-colors">
+            <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3.5 text-sm text-white hover:bg-white/5 transition-colors touch-target">
               <CreditCard className="h-4 w-4" /> Card
             </button>
           </div>
           <Button
             className="w-full"
+            size="lg"
             onClick={() => topupMutation.mutate(selectedAmount)}
             disabled={topupMutation.isPending}
           >

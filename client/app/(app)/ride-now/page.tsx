@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { MapPin, Navigation, Clock, Search, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useRideSearchStore } from "@/stores/rideSearchStore";
-import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { AddressAutocomplete } from "@/components/maps/address-autocomplete";
 import api from "@/lib/api";
@@ -64,14 +63,14 @@ export default function RideNowPage() {
   const canSearch = pickupInput && dropoffInput && pickup?.lat && dropoff?.lat;
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Ride Now</h1>
-        <p className="text-sm text-white/50">Find a ride near you</p>
+        <h1 className="text-xl font-bold text-white md:text-2xl">Ride Now</h1>
+        <p className="text-sm text-white/60">Find a ride near you</p>
       </div>
 
       <div className="relative rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-        <div className="absolute left-8 top-0 bottom-0 w-px bg-white/10" />
+        <div className="absolute left-8 top-4 bottom-4 w-px bg-white/10" />
 
         <div className="relative mb-4">
           <div className="absolute left-[-8px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-black" />
@@ -101,9 +100,9 @@ export default function RideNowPage() {
       <button
         onClick={handleUseCurrentLocation}
         disabled={geoLoading}
-        className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left transition-colors hover:bg-white/5"
+        className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left transition-colors hover:bg-white/5 active:bg-white/10 touch-target"
       >
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 shrink-0">
           {geoLoading ? (
             <Loader2 className="h-5 w-5 text-white animate-spin" />
           ) : (
@@ -112,7 +111,7 @@ export default function RideNowPage() {
         </div>
         <div>
           <p className="text-sm font-medium text-white">Use current location</p>
-          <p className="text-xs text-white/40">Detect your location automatically</p>
+          <p className="text-xs text-white/50">Detect your location automatically</p>
         </div>
       </button>
 
@@ -129,18 +128,18 @@ export default function RideNowPage() {
                   setDropoffInput(place.address);
                   setDropoff({ address: place.address, lat: place.lat, lng: place.lng });
                 }}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left transition-colors hover:bg-white/5"
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left transition-colors hover:bg-white/5 active:bg-white/10 touch-target"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 shrink-0">
                   {place.label === "Home" ? (
-                    <MapPin className="h-5 w-5 text-white/50" />
+                    <MapPin className="h-5 w-5 text-white/60" />
                   ) : (
-                    <Clock className="h-5 w-5 text-white/50" />
+                    <Clock className="h-5 w-5 text-white/60" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{place.name}</p>
-                  <p className="text-xs text-white/40">{place.address}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{place.name}</p>
+                  <p className="text-xs text-white/50 truncate">{place.address}</p>
                 </div>
               </button>
             ))}

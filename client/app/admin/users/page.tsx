@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, ChevronRight, X, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -58,17 +58,17 @@ export default function AdminUsersPage() {
   });
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <h1 className="text-2xl font-bold text-white">Users</h1>
+    <div className="animate-fade-in space-y-4 md:space-y-6">
+      <h1 className="text-xl font-bold text-white md:text-2xl">Users</h1>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
         <input
           type="text"
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/30 focus:border-white/20 focus:outline-none"
+          className="h-12 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none touch-target md:h-11"
         />
       </div>
 
@@ -84,14 +84,14 @@ export default function AdminUsersPage() {
             <button
               key={user.id}
               onClick={() => setSelectedUser(user)}
-              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left hover:bg-white/5 transition-colors"
+              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left hover:bg-white/5 active:bg-white/10 transition-colors touch-target"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
                 {user.name?.[0] || "?"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{user.name}</p>
-                <p className="text-xs text-white/40 truncate">
+                <p className="text-xs text-white/50 truncate">
                   {user.phone}{user.city ? ` · ${user.city}` : ""}
                 </p>
               </div>
@@ -102,9 +102,9 @@ export default function AdminUsersPage() {
                 )}>
                   {user.status}
                 </span>
-                <p className="mt-1 text-[10px] text-white/30">{user.role}</p>
+                <p className="mt-1 text-[10px] text-white/40">{user.role}</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-white/20 shrink-0" />
+              <ChevronRight className="h-4 w-4 text-white/30 shrink-0" />
             </button>
           ))}
         </div>
@@ -112,7 +112,6 @@ export default function AdminUsersPage() {
         <EmptyState title="No users found" />
       )}
 
-      {/* User Detail Bottom Sheet */}
       <BottomSheet
         open={!!selectedUser}
         onClose={() => setSelectedUser(null)}
@@ -121,12 +120,12 @@ export default function AdminUsersPage() {
         {selectedUser && (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-white">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-xl font-bold text-white shrink-0">
                 {selectedUser.name?.[0] || "?"}
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-lg font-semibold text-white">{selectedUser.name}</p>
-                <p className="text-sm text-white/50">{selectedUser.phone}</p>
+                <p className="text-sm text-white/60">{selectedUser.phone}</p>
               </div>
             </div>
 
@@ -178,7 +177,7 @@ export default function AdminUsersPage() {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs text-white/40">{label}</span>
+      <span className="text-xs text-white/50">{label}</span>
       <span className="text-sm text-white">{value}</span>
     </div>
   );

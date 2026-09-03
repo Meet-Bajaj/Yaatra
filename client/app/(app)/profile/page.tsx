@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { User, MapPin, ChevronRight, LogOut, Camera, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { getInitials } from "@/lib/utils";
 import api from "@/lib/api";
@@ -18,11 +18,31 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || "");
   const [city, setCity] = useState(user?.city || "");
 
+  useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      const res = await api.get(API.users.me);
+      if (res.data) {
+        updateUser(res.data);
+      }
+      return res.data;
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setCity(user.city || "");
+    }
+  }, [user?.name, user?.city]);
+
   const updateMutation = useMutation({
     mutationFn: (data: { name?: string; city?: string }) =>
       api.patch(API.users.updateMe, data),
     onSuccess: (res) => {
-      updateUser(res.data);
+      if (res.data) {
+        updateUser(res.data);
+      }
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       setEditing(false);
     },

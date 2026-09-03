@@ -19,8 +19,10 @@ interface User {
 interface AuthState {
   user: User | null;
   token: string | null;
+  onboardingComplete: boolean;
   _hasHydrated: boolean;
   setAuth: (user: User, token: string) => void;
+  setOnboardingComplete: (value: boolean) => void;
   updateUser: (user: Partial<User>) => void;
   logout: () => void;
   setHasHydrated: (value: boolean) => void;
@@ -31,14 +33,16 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      onboardingComplete: false,
       _hasHydrated: false,
       setAuth: (user, token) => set({ user, token }),
+      setOnboardingComplete: (value) => set({ onboardingComplete: value }),
       updateUser: (userData) =>
         set((state) => ({
           user: state.user ? { ...state.user, ...userData } : null,
         })),
       logout: () => {
-        set({ user: null, token: null });
+        set({ user: null, token: null, onboardingComplete: false });
         if (typeof window !== "undefined") {
           localStorage.removeItem("yaatra-auth");
         }

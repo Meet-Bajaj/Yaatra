@@ -15,7 +15,7 @@ const RESEND_SECONDS = 30;
 
 function OTPContent() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setOnboardingComplete } = useAuthStore();
   const searchParams = useSearchParams();
   const phone = searchParams.get("phone") || "";
 
@@ -49,8 +49,19 @@ function OTPContent() {
     setError("");
     try {
       const res = await api.post(API.auth.verify, { phone, code: otp });
-      const { user, access_token } = res.data;
+      const { user, access_token, isNewUser } = res.data;
+
+      if (isNewUser) {
+        // Backend auto-created a stub user — this phone is NOT registered.
+        // Do NOT store auth. Redirect to register.
+        setError("No account found for this number. Please register first.");
+        setOtp("");
+        return;
+      }
+
+      // Existing registered user — store auth and proceed to dashboard
       setAuth(user, access_token);
+      setOnboardingComplete(true);
       router.push("/dashboard");
     } catch (err: unknown) {
       const newAttempts = attempts + 1;
@@ -68,7 +79,7 @@ function OTPContent() {
     } finally {
       setLoading(false);
     }
-  }, [otp, locked, phone, attempts, setAuth, router]);
+  }, [otp, locked, phone, attempts, setAuth, setOnboardingComplete, router]);
 
   const handleResend = async () => {
     if (!canResend) return;

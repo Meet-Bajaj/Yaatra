@@ -7,15 +7,16 @@ import { useAuthStore } from "@/stores/authStore";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
+  const onboardingComplete = useAuthStore((s) => s.onboardingComplete);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   useEffect(() => {
-    if (hasHydrated && token) {
+    if (hasHydrated && token && onboardingComplete) {
       router.replace("/dashboard");
     }
-  }, [hasHydrated, token, router]);
+  }, [hasHydrated, token, onboardingComplete, router]);
 
-  if (hasHydrated && token) return null;
+  if (hasHydrated && token && onboardingComplete) return null;
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-black px-4 py-8">

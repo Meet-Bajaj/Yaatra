@@ -23,7 +23,7 @@ const RESEND_SECONDS = 30;
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setOnboardingComplete } = useAuthStore();
   const [mode, setMode] = useState<LoginMode>("otp");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -90,8 +90,19 @@ export default function LoginPage() {
     setError("");
     try {
       const res = await api.post(API.auth.verify, { phone: formatPhone(phone), code: otp });
-      const { user, access_token } = res.data;
+      const { user, access_token, isNewUser } = res.data;
+
+      if (isNewUser) {
+        // Backend auto-created a stub user — this phone is NOT registered.
+        // Do NOT store auth. Redirect to register.
+        setError("No account found for this number. Please register first.");
+        setOtp("");
+        return;
+      }
+
+      // Existing registered user — store auth and proceed to dashboard
       setAuth(user, access_token);
+      setOnboardingComplete(true);
       router.push("/dashboard");
     } catch (err: unknown) {
       const newAttempts = otpAttempts + 1;
@@ -109,7 +120,7 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  }, [otp, locked, phone, otpAttempts, setAuth, router]);
+  }, [otp, locked, phone, otpAttempts, setAuth, setOnboardingComplete, router]);
 
   const handleResendOtp = async () => {
     if (!canResend) return;
@@ -130,6 +141,7 @@ export default function LoginPage() {
       const res = await api.post(API.auth.login, { phone: formatPhone(phone), password: data.password });
       const { user, access_token } = res.data;
       setAuth(user, access_token);
+      setOnboardingComplete(true);
       router.push("/dashboard");
     } catch (err: unknown) {
       const message =

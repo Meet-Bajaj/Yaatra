@@ -7,6 +7,7 @@ import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
 
 const roles = [
   {
@@ -40,6 +41,7 @@ export default function RolePage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { updateUser } = useAuthStore();
 
   const handleSelect = async () => {
     if (!selected) return;
@@ -47,6 +49,7 @@ export default function RolePage() {
     setError("");
     try {
       await api.post(API.users.setRole, { role: selected });
+      updateUser({ role: selected });
       if (selected === "RIDER") {
         router.push("/profile-setup");
       } else {

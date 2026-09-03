@@ -12,8 +12,24 @@ import { API } from "@/lib/endpoints";
 import { cn, formatINR } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const queryClient = useQueryClient();
+
+  // ─── Profile Sync ───────────────────────────────────────
+  useQuery({
+    queryKey: ["profile"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.users.me);
+        if (res.data) {
+          updateUser(res.data);
+        }
+        return res.data;
+      } catch {
+        return null;
+      }
+    },
+  });
 
   const isDriver = user?.role === "DRIVER" || user?.role === "BOTH";
   const isRider = user?.role === "RIDER" || user?.role === "BOTH";

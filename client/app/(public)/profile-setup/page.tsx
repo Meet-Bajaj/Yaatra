@@ -11,14 +11,16 @@ import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuthStore } from "@/stores/authStore";
 
 const genders = ["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"] as const;
 
 export default function ProfileSetupPage() {
   const router = useRouter();
+  const { user, updateUser, setOnboardingComplete } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedGender, setSelectedGender] = useState<string>("");
+  const [selectedGender, setSelectedGender] = useState<string>(user?.gender || "");
 
   const {
     register,
@@ -26,17 +28,25 @@ export default function ProfileSetupPage() {
     formState: { errors },
   } = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { gender: undefined },
+    defaultValues: {
+      name: user?.name || "",
+      city: user?.city || "",
+      gender: undefined,
+    },
   });
 
   const onSubmit = async (data: z.infer<typeof profileSchema>) => {
     setLoading(true);
     setError("");
     try {
-      await api.patch(API.users.updateMe, {
+      const res = await api.patch(API.users.updateMe, {
         ...data,
         gender: selectedGender || undefined,
       });
+      if (res.data) {
+        updateUser(res.data);
+      }
+      setOnboardingComplete(true);
       router.push("/dashboard");
     } catch {
       setError("Failed to update profile. Please try again.");

@@ -7,13 +7,23 @@ import { useAuthStore } from "@/stores/authStore";
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const onboardingComplete = useAuthStore((s) => s.onboardingComplete);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   useEffect(() => {
-    if (hasHydrated && !token) {
+    if (!hasHydrated) return;
+
+    if (!token) {
       router.replace("/login");
+      return;
     }
-  }, [hasHydrated, token, router]);
+
+    // Token exists but onboarding not complete (user registered but didn't finish role/kyc/profile)
+    if (!onboardingComplete) {
+      router.replace("/role");
+    }
+  }, [hasHydrated, token, onboardingComplete, router]);
 
   if (!hasHydrated) {
     return (
@@ -23,7 +33,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!token) return null;
+  if (!token || !onboardingComplete) return null;
 
   return <>{children}</>;
 }

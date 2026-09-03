@@ -23,7 +23,7 @@ const roles = [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setOnboardingComplete } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedRole, setSelectedRole] = useState<"RIDER" | "DRIVER" | "BOTH">("RIDER");
@@ -51,6 +51,7 @@ export default function RegisterPage() {
       });
       const { user, access_token } = res.data;
       setAuth(user, access_token);
+      setOnboardingComplete(false);
       router.push("/role");
     } catch (err: unknown) {
       const message =
@@ -91,6 +92,8 @@ export default function RegisterPage() {
             <input
               type="tel"
               placeholder="98765 43210"
+              maxLength={10}
+              onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "").slice(0, 10); }}
               className="flex h-11 flex-1 rounded-r-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/20"
               {...register("phone")}
             />

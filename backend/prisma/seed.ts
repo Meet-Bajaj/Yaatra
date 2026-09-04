@@ -1,931 +1,1080 @@
-/**
- * Prisma Seed — Yaatra
- *
- * Run:  npx prisma db seed
- *       — or —  npm run seed
- *
- * Requirements:
- *   - PostgreSQL with PostGIS extension enabled (recurring_rides.route uses geography(LINESTRING,4326))
- *   - Database seeded AFTER the latest migration has been applied
- *
- * The seed is idempotent — deletes all data before re-inserting.
- */
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcryptjs';
 
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** ST_GeographyFromText string for a LINESTRING */
-function linestring(coords: [number, number][]) {
-  const body = coords.map(([lng, lat]) => `${lng} ${lat}`).join(", ");
-  return `SRID=4326;LINESTRING(${body})`;
-}
-
-/** TIME(0) column needs midnight-based Date objects */
-function time(h: number, m: number) {
-  return new Date(1970, 0, 1, h, m, 0);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. USERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const USERS = [
-  // ── Admin ──────────────────────────────────────────────────
-  {
-    id: "user-admin-001",
-    phone: "9000000001",
-    name: "Yaatra Admin",
-    email: "admin@yaatra.in",
-    role: "ADMIN" as const,
-    gender: "MALE",
-    city: "Bangalore",
-    referralCode: "ADMIN001",
-  },
-  // ── Carpool / professional drivers ─────────────────────────
-  {
-    id: "user-driver-001",
-    phone: "9000000010",
-    name: "Rajesh Kumar",
-    email: "rajesh@example.com",
-    role: "BOTH" as const,
-    gender: "MALE",
-    city: "Bangalore",
-    referralCode: "RAJ001",
-    emergencyContacts: [
-      { label: "Wife", phone: "9000000011" },
-      { label: "Brother", phone: "9000000012" },
-    ],
-  },
-  {
-    id: "user-driver-002",
-    phone: "9000000020",
-    name: "Priya Sharma",
-    email: "priya.s@example.com",
-    role: "BOTH" as const,
-    gender: "FEMALE",
-    city: "Bangalore",
-    referralCode: "PRI001",
-  },
-  {
-    id: "user-driver-003",
-    phone: "9000000030",
-    name: "Vikram Patel",
-    email: "vikram.p@example.com",
-    role: "DRIVER" as const,
-    gender: "MALE",
-    city: "Delhi NCR",
-    referralCode: "VIK001",
-    emergencyContacts: [{ label: "Father", phone: "9000000031" }],
-  },
-  {
-    id: "user-driver-004",
-    phone: "9000000040",
-    name: "Anil Singh",
-    email: "anil.s@example.com",
-    role: "PROFESSIONAL" as const,
-    gender: "MALE",
-    city: "Bangalore",
-    referralCode: "ANI001",
-  },
-  // ── Riders ─────────────────────────────────────────────────
-  {
-    id: "user-rider-001",
-    phone: "9000000100",
-    name: "Asha Reddy",
-    email: "asha.r@example.com",
-    role: "RIDER" as const,
-    gender: "FEMALE",
-    city: "Bangalore",
-    referralCode: "ASH001",
-    emergencyContacts: [
-      { label: "Mom", phone: "9000000101" },
-      { label: "Friend", phone: "9000000102" },
-    ],
-  },
-  {
-    id: "user-rider-002",
-    phone: "9000000200",
-    name: "Deepak Nair",
-    email: "deepak.n@example.com",
-    role: "RIDER" as const,
-    gender: "MALE",
-    city: "Bangalore",
-    referralCode: "DEE001",
-  },
-  {
-    id: "user-rider-003",
-    phone: "9000000300",
-    name: "Kavitha Menon",
-    email: "kavitha.m@example.com",
-    role: "RIDER" as const,
-    gender: "FEMALE",
-    city: "Mumbai",
-    referralCode: "KAV001",
-  },
-  {
-    id: "user-rider-004",
-    phone: "9000000400",
-    name: "Arjun Gupta",
-    email: "arjun.g@example.com",
-    role: "RIDER" as const,
-    gender: "MALE",
-    city: "Delhi NCR",
-    referralCode: "ARJ001",
-  },
-  {
-    id: "user-rider-005",
-    phone: "9000000500",
-    name: "Sneha Iyer",
-    email: "sneha.i@example.com",
-    role: "RIDER" as const,
-    gender: "FEMALE",
-    city: "Hyderabad",
-    referralCode: "SNE001",
-  },
-  {
-    id: "user-rider-006",
-    phone: "9000000600",
-    name: "Mohammed Farhan",
-    email: "farhan@example.com",
-    role: "RIDER" as const,
-    gender: "MALE",
-    city: "Pune",
-    referralCode: "FAR001",
-  },
-] as const;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. DRIVER PROFILES
-// ─────────────────────────────────────────────────────────────────────────────
-
-const DRIVER_PROFILES = [
-  {
-    driverId: "user-driver-001",
-    driverType: "BOTH" as const,
-    isOnline: false,
-    currentLat: 12.9716,
-    currentLng: 77.5946,
-    currentZone: "Whitefield",
-    verificationStatus: "PASSED" as const,
-    totalRating: 4.7,
-    ratingCount: 142,
-    badges: { verifiedIdentity: true, verifiedVehicle: true, experienced: true },
-  },
-  {
-    driverId: "user-driver-002",
-    driverType: "CARPOOL" as const,
-    isOnline: false,
-    currentLat: 12.9352,
-    currentLng: 77.6245,
-    currentZone: "Koramangala",
-    verificationStatus: "PASSED" as const,
-    totalRating: 4.9,
-    ratingCount: 87,
-    badges: {
-      verifiedIdentity: true,
-      verifiedVehicle: true,
-      womenOnly: true,
-      experienced: true,
-    },
-  },
-  {
-    driverId: "user-driver-003",
-    driverType: "CARPOOL" as const,
-    isOnline: false,
-    currentLat: 28.6139,
-    currentLng: 77.209,
-    currentZone: "Connaught Place",
-    verificationStatus: "PASSED" as const,
-    totalRating: 4.5,
-    ratingCount: 203,
-    badges: { verifiedIdentity: true, verifiedVehicle: true, experienced: true },
-  },
-  {
-    driverId: "user-driver-004",
-    driverType: "PROFESSIONAL" as const,
-    isOnline: true,
-    currentLat: 12.9784,
-    currentLng: 77.6408,
-    currentZone: "Koramangala",
-    verificationStatus: "PASSED" as const,
-    totalRating: 4.3,
-    ratingCount: 510,
-    badges: {
-      verifiedIdentity: true,
-      verifiedVehicle: true,
-      commercialPermit: true,
-      experienced: true,
-    },
-  },
-] as const;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. VEHICLES
-// ─────────────────────────────────────────────────────────────────────────────
-
-const VEHICLES = [
-  {
-    id: "veh-001",
-    driverId: "user-driver-001",
-    make: "Maruti Suzuki",
-    model: "Ciaz",
-    color: "Pearl White",
-    licensePlate: "KA 01 AB 1234",
-    capacity: 4,
-    isCommercial: false,
-    verificationStatus: "PASSED" as const,
-  },
-  {
-    id: "veh-002",
-    driverId: "user-driver-001",
-    make: "Hyundai",
-    model: "Verna",
-    color: "Midnight Blue",
-    licensePlate: "KA 02 MN 5678",
-    capacity: 4,
-    isCommercial: false,
-    verificationStatus: "PASSED" as const,
-  },
-  {
-    id: "veh-003",
-    driverId: "user-driver-002",
-    make: "Honda",
-    model: "City",
-    color: "Silver",
-    licensePlate: "KA 05 CD 9012",
-    capacity: 4,
-    isCommercial: false,
-    verificationStatus: "PASSED" as const,
-  },
-  {
-    id: "veh-004",
-    driverId: "user-driver-003",
-    make: "Toyota",
-    model: "Innova Crysta",
-    color: "White",
-    licensePlate: "DL 01 EF 3456",
-    capacity: 6,
-    isCommercial: false,
-    verificationStatus: "PASSED" as const,
-  },
-  {
-    id: "veh-005",
-    driverId: "user-driver-004",
-    make: "Maruti Suzuki",
-    model: "Dzire",
-    color: "Graphene Grey",
-    licensePlate: "KA 03 GH 7890",
-    capacity: 4,
-    isCommercial: true,
-    fitnessCertUrl: "kyc/veh-005/fitness.pdf",
-    permitUrl: "kyc/veh-005/permit.pdf",
-    verificationStatus: "PASSED" as const,
-  },
-] as const;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. RECURRING RIDES (PostGIS LINESTRING — raw SQL)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const RECURRING_RIDES = [
-  {
-    id: "ride-001",
-    driverId: "user-driver-001",
-    vehicleId: "veh-001",
-    route: linestring([
-      [77.75, 12.969],   // Whitefield
-      [77.7, 12.965],
-      [77.65, 12.955],
-      [77.6245, 12.9352], // Koramangala
-    ]),
-    schedule: {
-      days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
-      departureTime: "08:30",
-      returnDeparture: "18:00",
-    },
-    pricePerSeat: 150,
-    maxPassengers: 3,
-    womenOnly: false,
-    status: "ACTIVE" as const,
-  },
-  {
-    id: "ride-002",
-    driverId: "user-driver-002",
-    vehicleId: "veh-003",
-    route: linestring([
-      [77.6245, 12.9352], // Koramangala
-      [77.64, 12.92],
-      [77.66, 12.9],
-      [77.68, 12.885],    // Electronic City
-    ]),
-    schedule: {
-      days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
-      departureTime: "09:00",
-    },
-    pricePerSeat: 120,
-    maxPassengers: 2,
-    womenOnly: true,
-    status: "ACTIVE" as const,
-  },
-  {
-    id: "ride-003",
-    driverId: "user-driver-003",
-    vehicleId: "veh-004",
-    route: linestring([
-      [77.209, 28.6139],  // Connaught Place
-      [77.2, 28.52],
-      [77.09, 28.46],     // Gurgaon Cyber Hub
-    ]),
-    schedule: {
-      days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
-      departureTime: "08:00",
-    },
-    pricePerSeat: 200,
-    maxPassengers: 3,
-    womenOnly: false,
-    status: "ACTIVE" as const,
-  },
-] as const;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. RIDE INSTANCES (next N business days)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function nextBusinessDays(n: number): Date[] {
-  const days: Date[] = [];
-  const d = new Date();
-  while (days.length < n) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) {
-      days.push(new Date(d));
-    }
-  }
-  return days;
-}
-
-const bdays = nextBusinessDays(5);
-
-const RIDE_INSTANCES = [
-  // Rajesh's commute — 5 weekdays
-  ...bdays.map((date, i) => ({
-    id: `inst-001-${i + 1}`,
-    rideId: "ride-001",
-    date,
-    departureTime: time(8, 30),
-    status: (i < 3 ? "COMPLETED" : "SCHEDULED") as "COMPLETED" | "SCHEDULED",
-  })),
-  // Priya's women-only — 5 weekdays
-  ...bdays.map((date, i) => ({
-    id: `inst-002-${i + 1}`,
-    rideId: "ride-002",
-    date,
-    departureTime: time(9, 0),
-    status: (i < 2 ? "COMPLETED" : "SCHEDULED") as "COMPLETED" | "SCHEDULED",
-  })),
-  // Vikram's CP→Gurgaon — 3 weekdays
-  ...bdays.slice(0, 3).map((date, i) => ({
-    id: `inst-003-${i + 1}`,
-    rideId: "ride-003",
-    date,
-    departureTime: time(8, 0),
-    status: (i < 1 ? "COMPLETED" : "SCHEDULED") as "COMPLETED" | "SCHEDULED",
-  })),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. BOOKINGS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const BOOKINGS = [
-  // Completed — Asha on Rajesh's first 3 instances
-  { id: "booking-001", instanceId: "inst-001-1", riderId: "user-rider-001", seatCount: 1, fareTotal: 150, commission: 15, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  { id: "booking-002", instanceId: "inst-001-2", riderId: "user-rider-001", seatCount: 1, fareTotal: 150, commission: 15, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  { id: "booking-003", instanceId: "inst-001-3", riderId: "user-rider-001", seatCount: 1, fareTotal: 150, commission: 15, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  // Deepak on Rajesh's first instance
-  { id: "booking-004", instanceId: "inst-001-1", riderId: "user-rider-002", seatCount: 1, fareTotal: 150, commission: 15, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  // Kavitha on Priya's completed instances
-  { id: "booking-005", instanceId: "inst-002-1", riderId: "user-rider-003", seatCount: 1, fareTotal: 120, commission: 12, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  { id: "booking-006", instanceId: "inst-002-2", riderId: "user-rider-003", seatCount: 1, fareTotal: 120, commission: 12, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  // Sneha on Priya's upcoming (women-only)
-  { id: "booking-007", instanceId: "inst-002-3", riderId: "user-rider-005", seatCount: 1, fareTotal: 120, commission: 12, paymentStatus: "AUTHORIZED" as const, bookingStatus: "CONFIRMED" as const },
-  // Arjun on Vikram's CP→Gurgaon
-  { id: "booking-008", instanceId: "inst-003-1", riderId: "user-rider-004", seatCount: 1, fareTotal: 200, commission: 20, paymentStatus: "CAPTURED" as const, bookingStatus: "COMPLETED" as const },
-  // Mohammed on Vikram's upcoming
-  { id: "booking-009", instanceId: "inst-003-2", riderId: "user-rider-006", seatCount: 1, fareTotal: 200, commission: 20, paymentStatus: "PENDING" as const, bookingStatus: "CONFIRMED" as const },
-  // Cancelled
-  { id: "booking-010", instanceId: "inst-001-5", riderId: "user-rider-002", seatCount: 1, fareTotal: 150, commission: 0, paymentStatus: "REFUNDED" as const, bookingStatus: "CANCELLED" as const },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. ON-DEMAND TRIPS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TRIPS = [
-  {
-    id: "trip-001",
-    riderId: "user-rider-001",
-    driverId: "user-driver-004",
-    status: "COMPLETED" as const,
-    pickupLat: 12.9716,
-    pickupLng: 77.5946,
-    dropLat: 12.9063,
-    dropLng: 77.5857,
-    pickupAddress: "MG Road, Bangalore",
-    dropAddress: "Jayanagar 4th Block, Bangalore",
-    fareEstimate: 280,
-    fareFinal: 265,
-    distanceKm: 12.5,
-    durationMin: 35,
-    pickupTime: new Date(Date.now() - 86400000 * 2),
-    startTime: new Date(Date.now() - 86400000 * 2 + 300000),
-    endTime: new Date(Date.now() - 86400000 * 2 + 2400000),
-    surgeMultiplier: 1.0,
-  },
-  {
-    id: "trip-002",
-    riderId: "user-rider-002",
-    driverId: "user-driver-001",
-    status: "IN_PROGRESS" as const,
-    pickupLat: 12.965,
-    pickupLng: 77.61,
-    dropLat: 12.935,
-    dropLng: 77.625,
-    pickupAddress: "HSR Layout Sector 2, Bangalore",
-    dropAddress: "Koramangala 5th Block, Bangalore",
-    fareEstimate: 180,
-    distanceKm: 8.2,
-    durationMin: 22,
-    pickupTime: new Date(),
-    startTime: new Date(),
-    surgeMultiplier: 1.0,
-  },
-  {
-    id: "trip-003",
-    riderId: "user-rider-004",
-    driverId: null,
-    status: "SEARCHING" as const,
-    pickupLat: 28.6139,
-    pickupLng: 77.209,
-    dropLat: 28.5245,
-    dropLng: 77.2065,
-    pickupAddress: "Connaught Place, Delhi",
-    dropAddress: "Hauz Khas Village, Delhi",
-    fareEstimate: 320,
-    surgeMultiplier: 1.2,
-  },
-  {
-    id: "trip-004",
-    riderId: "user-rider-003",
-    driverId: null,
-    status: "COMPLETED" as const,
-    pickupLat: 19.076,
-    pickupLng: 72.8777,
-    dropLat: 19.0596,
-    dropLng: 72.8295,
-    pickupAddress: "Bandra West, Mumbai",
-    dropAddress: "Lower Parel, Mumbai",
-    fareEstimate: 250,
-    fareFinal: 240,
-    distanceKm: 10.1,
-    durationMin: 28,
-    pickupTime: new Date(Date.now() - 86400000),
-    startTime: new Date(Date.now() - 86400000 + 180000),
-    endTime: new Date(Date.now() - 86400000 + 1860000),
-    surgeMultiplier: 1.0,
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 8. TRIP LOCATIONS (in-progress trip-002)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TRIP_LOCATIONS = Array.from({ length: 12 }, (_, i) => ({
-  id: `loc-002-${i + 1}`,
-  tripId: "trip-002",
-  lat: 12.965 + i * 0.0008,
-  lng: 77.61 + i * 0.001,
-  speedKmh: 25 + Math.round(Math.random() * 20),
-  recordedAt: new Date(Date.now() - (12 - i) * 30000),
-}));
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 9. PAYMENTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const BOOKING_PAYMENTS = BOOKINGS.filter(
-  (b) => b.paymentStatus === "CAPTURED" || b.paymentStatus === "AUTHORIZED",
-).map((b, i) => ({
-  id: `pay-bk-${String(i + 1).padStart(3, "0")}`,
-  bookingId: b.id,
-  tripId: null as string | null,
-  providerTransactionId: `rzp_${b.id.replace("booking-", "")}`,
-  amount: b.fareTotal,
-  type: (b.paymentStatus === "CAPTURED" ? "CAPTURE" : "AUTH") as "CAPTURE" | "AUTH",
-  status: "SUCCEEDED" as const,
-}));
-
-const TRIP_PAYMENTS = [
-  {
-    id: "pay-trip-001",
-    bookingId: null as string | null,
-    tripId: "trip-001",
-    providerTransactionId: "rzp_trip001",
-    amount: 265,
-    type: "CAPTURE" as const,
-    status: "SUCCEEDED" as const,
-  },
-  {
-    id: "pay-trip-004",
-    bookingId: null as string | null,
-    tripId: "trip-004",
-    providerTransactionId: "rzp_trip004",
-    amount: 240,
-    type: "CAPTURE" as const,
-    status: "SUCCEEDED" as const,
-  },
-];
-
-const PAYMENTS = [...BOOKING_PAYMENTS, ...TRIP_PAYMENTS];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 10. WALLETS & TRANSACTIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const WALLETS = [
-  { id: "wallet-001", userId: "user-rider-001", balance: 850 },
-  { id: "wallet-002", userId: "user-rider-002", balance: 1200 },
-  { id: "wallet-003", userId: "user-rider-003", balance: 2100 },
-  { id: "wallet-004", userId: "user-rider-004", balance: 340 },
-  { id: "wallet-005", userId: "user-rider-005", balance: 500 },
-  { id: "wallet-006", userId: "user-rider-006", balance: 175 },
-  { id: "wallet-007", userId: "user-driver-001", balance: 3200 },
-  { id: "wallet-008", userId: "user-driver-002", balance: 2850 },
-  { id: "wallet-009", userId: "user-driver-003", balance: 5400 },
-  { id: "wallet-010", userId: "user-driver-004", balance: 8750 },
-];
-
-const WALLET_TXNS = [
-  // Asha
-  { id: "txn-001", walletId: "wallet-001", amount: 1000, type: "TOPUP" as const, referenceId: null as string | null },
-  { id: "txn-002", walletId: "wallet-001", amount: -150, type: "DEBIT" as const, referenceId: "booking-001" },
-  { id: "txn-003", walletId: "wallet-001", amount: -150, type: "DEBIT" as const, referenceId: "booking-002" },
-  { id: "txn-004", walletId: "wallet-001", amount: -150, type: "DEBIT" as const, referenceId: "booking-003" },
-  { id: "txn-005", walletId: "wallet-001", amount: 1000, type: "TOPUP" as const, referenceId: null },
-  // Deepak
-  { id: "txn-006", walletId: "wallet-002", amount: 1500, type: "TOPUP" as const, referenceId: null },
-  { id: "txn-007", walletId: "wallet-002", amount: -150, type: "DEBIT" as const, referenceId: "booking-004" },
-  { id: "txn-008", walletId: "wallet-002", amount: -150, type: "DEBIT" as const, referenceId: "booking-010" },
-  { id: "txn-009", walletId: "wallet-002", amount: 150, type: "REFUND" as const, referenceId: "booking-010" },
-  // Kavitha
-  { id: "txn-010", walletId: "wallet-003", amount: 2500, type: "TOPUP" as const, referenceId: null },
-  { id: "txn-011", walletId: "wallet-003", amount: -120, type: "DEBIT" as const, referenceId: "booking-005" },
-  { id: "txn-012", walletId: "wallet-003", amount: -120, type: "DEBIT" as const, referenceId: "booking-006" },
-  // Rajesh (driver earnings)
-  { id: "txn-013", walletId: "wallet-007", amount: 450, type: "TOPUP" as const, referenceId: null },
-  { id: "txn-014", walletId: "wallet-007", amount: 135, type: "ADJUSTMENT" as const, referenceId: "booking-001" },
-  { id: "txn-015", walletId: "wallet-007", amount: 135, type: "ADJUSTMENT" as const, referenceId: "booking-002" },
-  { id: "txn-016", walletId: "wallet-007", amount: 135, type: "ADJUSTMENT" as const, referenceId: "booking-003" },
-  // Anil (pro: fare 265, 25% commission = 66.25, net 198.75)
-  { id: "txn-017", walletId: "wallet-010", amount: 198.75, type: "ADJUSTMENT" as const, referenceId: "trip-001" },
-  // Vikram
-  { id: "txn-018", walletId: "wallet-009", amount: 180, type: "ADJUSTMENT" as const, referenceId: "booking-008" },
-  // Priya
-  { id: "txn-019", walletId: "wallet-008", amount: 3000, type: "TOPUP" as const, referenceId: null },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 11. RATINGS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const RATINGS = [
-  {
-    id: "rat-001",
-    reviewerId: "user-rider-001",
-    revieweeId: "user-driver-001",
-    rideInstanceId: "inst-001-1" as string | null,
-    tripId: null as string | null,
-    score: 5,
-    comment: "Punctual and drove carefully. Great carpool experience!",
-    tags: { punctual: true, safeDriver: true, comfortable: true },
-  },
-  {
-    id: "rat-002",
-    reviewerId: "user-rider-002",
-    revieweeId: "user-driver-001",
-    rideInstanceId: "inst-001-1" as string | null,
-    tripId: null,
-    score: 4,
-    comment: "Good ride, on time. AC was slightly warm.",
-    tags: { punctual: true, safeDriver: true },
-  },
-  {
-    id: "rat-003",
-    reviewerId: "user-rider-003",
-    revieweeId: "user-driver-002",
-    rideInstanceId: "inst-002-1" as string | null,
-    tripId: null,
-    score: 5,
-    comment: "Felt very safe and comfortable. Highly recommend!",
-    tags: { punctual: true, safeDriver: true, comfortable: true },
-  },
-  {
-    id: "rat-004",
-    reviewerId: "user-rider-001",
-    revieweeId: "user-driver-004",
-    rideInstanceId: null,
-    tripId: "trip-001" as string | null,
-    score: 4,
-    comment: "Smooth ride, knew the shortcuts. Fair pricing.",
-    tags: { punctual: true, safeDriver: true },
-  },
-  {
-    id: "rat-005",
-    reviewerId: "user-rider-004",
-    revieweeId: "user-driver-003",
-    rideInstanceId: null,
-    tripId: "trip-004" as string | null,
-    score: 5,
-    comment: "Excellent driver. Very professional and safe.",
-    tags: { punctual: true, safeDriver: true, experienced: true },
-  },
-  {
-    id: "rat-006",
-    reviewerId: "user-rider-003",
-    revieweeId: "user-driver-002",
-    rideInstanceId: "inst-002-2" as string | null,
-    tripId: null,
-    score: 5,
-    comment: "Always on time and keeps the car spotless.",
-    tags: { punctual: true, cleanCar: true, comfortable: true },
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 12. KYC DOCUMENTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const KYC_DOCS = [
-  { id: "doc-001", userId: "user-driver-001", type: "DRIVING_LICENSE" as const, s3Key: "kyc/user-driver-001/driving-license.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 30) },
-  { id: "doc-002", userId: "user-driver-001", type: "AADHAAR" as const, s3Key: "kyc/user-driver-001/aadhaar.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 30) },
-  { id: "doc-003", userId: "user-driver-002", type: "DRIVING_LICENSE" as const, s3Key: "kyc/user-driver-002/driving-license.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 25) },
-  { id: "doc-004", userId: "user-driver-002", type: "AADHAAR" as const, s3Key: "kyc/user-driver-002/aadhaar.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 25) },
-  { id: "doc-005", userId: "user-driver-003", type: "DRIVING_LICENSE" as const, s3Key: "kyc/user-driver-003/driving-license.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 15) },
-  { id: "doc-006", userId: "user-driver-004", type: "DRIVING_LICENSE" as const, s3Key: "kyc/user-driver-004/driving-license.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 60) },
-  { id: "doc-007", userId: "user-driver-004", type: "AADHAAR" as const, s3Key: "kyc/user-driver-004/aadhaar.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 60) },
-  { id: "doc-008", userId: "user-driver-004", type: "PAN" as const, s3Key: "kyc/user-driver-004/pan.pdf", status: "PASSED" as const, verifiedAt: new Date(Date.now() - 86400000 * 60) },
-  { id: "doc-009", userId: "user-rider-001", type: "AADHAAR" as const, s3Key: "kyc/user-rider-001/aadhaar.pdf", status: "PENDING" as const, verifiedAt: null },
-  { id: "doc-010", userId: "user-rider-002", type: "AADHAAR" as const, s3Key: "kyc/user-rider-002/aadhaar.pdf", status: "FAILED" as const, verifiedAt: null, rejectionReason: "Image is blurry and text is not readable. Please re-upload a clearer photo." },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 13. SAVED PLACES
-// ─────────────────────────────────────────────────────────────────────────────
-
-const SAVED_PLACES = [
-  // Asha
-  { id: "place-001", userId: "user-rider-001", label: "Home", name: "Asha's Apartment", address: "HSR Layout Sector 3, Bangalore, Karnataka 560102", lat: 12.9116, lng: 77.6389 },
-  { id: "place-002", userId: "user-rider-001", label: "Work", name: "Infosys Electronics City", address: "Electronics City Phase 1, Hosur Road, Bangalore", lat: 12.8456, lng: 77.6602 },
-  { id: "place-003", userId: "user-rider-001", label: "College", name: "BMS College of Engineering", address: "Bull Temple Road, Basavanagudi, Bangalore", lat: 12.9414, lng: 77.5624 },
-  // Deepak
-  { id: "place-004", userId: "user-rider-002", label: "Home", name: "Deepak's PG", address: "Koramangala 4th Block, Bangalore, Karnataka 560034", lat: 12.9352, lng: 77.6245 },
-  { id: "place-005", userId: "user-rider-002", label: "Work", name: "Flipkart Office", address: "Outer Ring Road, Bellandur, Bangalore", lat: 12.9352, lng: 77.67 },
-  // Kavitha
-  { id: "place-006", userId: "user-rider-003", label: "Home", name: "Kavitha's Flat", address: "Bandra West, Mumbai, Maharashtra 400050", lat: 19.0596, lng: 72.8295 },
-  { id: "place-007", userId: "user-rider-003", label: "Work", name: "ICICI Bank Tower", address: "Lower Parel, Mumbai, Maharashtra 400013", lat: 19.0096, lng: 72.8405 },
-  // Rajesh
-  { id: "place-008", userId: "user-driver-001", label: "Home", name: "Rajesh's House", address: "Whitefield Main Road, Bangalore, Karnataka 560066", lat: 12.969, lng: 77.75 },
-  { id: "place-009", userId: "user-driver-001", label: "Work", name: "Wipro SEZ", address: "Sarjapur Road, Bangalore, Karnataka 560103", lat: 12.9121, lng: 77.6446 },
-  // Arjun
-  { id: "place-010", userId: "user-rider-004", label: "Home", name: "Arjun's Residence", address: "Dwarka Sector 7, Delhi, Delhi 110077", lat: 28.5733, lng: 77.0587 },
-  { id: "place-011", userId: "user-rider-004", label: "Work", name: "NASSCOM Office", address: "Connaught Place, Delhi, Delhi 110001", lat: 28.6315, lng: 77.2167 },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 14. NOTIFICATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const NOTIFICATIONS = [
-  { id: "notif-001", userId: "user-rider-001", type: "BOOKING_CONFIRMED", payload: { message: "Your booking with Rajesh Kumar for tomorrow is confirmed.", rideId: "ride-001", instanceId: "inst-001-4" }, readAt: new Date(Date.now() - 86400000) },
-  { id: "notif-002", userId: "user-rider-001", type: "RIDE_COMPLETED", payload: { message: "Your ride with Anil Singh is complete. Please rate your experience.", tripId: "trip-001" }, readAt: null },
-  { id: "notif-003", userId: "user-rider-001", type: "RIDE_REMINDER", payload: { message: "Reminder: Your carpool with Rajesh Kumar departs in 1 hour.", rideId: "ride-001", instanceId: "inst-001-5" }, readAt: null },
-  { id: "notif-004", userId: "user-driver-001", type: "BOOKING_REQUEST", payload: { message: "Deepak Nair wants to join your morning commute tomorrow.", bookingId: "booking-004", riderName: "Deepak Nair" }, readAt: new Date(Date.now() - 86400000) },
-  { id: "notif-005", userId: "user-driver-001", type: "DRIVER_ASSIGNMENT", payload: { message: "You have been assigned a new trip. Pickup at HSR Layout.", tripId: "trip-002" }, readAt: null },
-  { id: "notif-006", userId: "user-rider-004", type: "SEARCH_TIMEOUT", payload: { message: "No drivers found nearby within 2 minutes. Try expanding your search radius." }, readAt: null },
-  { id: "notif-007", userId: "user-driver-003", type: "PAYOUT_PROCESSED", payload: { message: "Your earnings of ₹180 from booking #booking-008 have been credited.", bookingId: "booking-008" }, readAt: new Date(Date.now() - 3600000) },
-  { id: "notif-008", userId: "user-rider-005", type: "BOOKING_CONFIRMED", payload: { message: "Your women-only carpool with Priya Sharma is confirmed for tomorrow 9 AM.", rideId: "ride-002", instanceId: "inst-002-3" }, readAt: null },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 15. DISPUTES
-// ─────────────────────────────────────────────────────────────────────────────
-
-const DISPUTES = [
-  { id: "dispute-001", bookingId: "booking-010", raisedBy: "user-rider-002", reason: "Driver cancelled less than 30 minutes before pickup. Requesting penalty refund.", status: "OPEN", refundAmount: null },
-  { id: "dispute-002", bookingId: "booking-008", raisedBy: "user-rider-004", reason: "Fare was ₹320 estimate but ₹200 charged — expected higher fare.", status: "RESOLVED", resolution: "Fare was recalculated based on actual route. ₹200 was correct.", refundAmount: 0 },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 16. EMERGENCY ALERTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const EMERGENCY_ALERTS = [
-  { id: "alert-001", userId: "user-rider-001", tripId: "trip-001", lat: 12.9716, lng: 77.5946, status: "RESOLVED" },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SEED EXECUTION
-// ─────────────────────────────────────────────────────────────────────────────
+const adapter = new PrismaPg({
+  connectionString:
+    process.env.DATABASE_URL ||
+    'postgresql://admin:SuperSecurePassword123!@localhost:5432/yaatri',
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Seeding Yaatra database...\n");
+  console.log('Seeding database...');
 
-  // Clean in dependency order (children first)
-  console.log("  Cleaning existing data...");
-  await prisma.emergencyAlert.deleteMany();
-  await prisma.dispute.deleteMany();
-  await prisma.tripLocation.deleteMany();
-  await prisma.rating.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.kycDocument.deleteMany();
-  await prisma.savedPlace.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.booking.deleteMany();
-  await prisma.trip.deleteMany();
-  await prisma.walletTransaction.deleteMany();
-  await prisma.wallet.deleteMany();
-  await prisma.rideInstance.deleteMany();
-  await prisma.recurringRide.deleteMany();
-  await prisma.vehicles.deleteMany();
-  await prisma.driverProfile.deleteMany();
-  await prisma.user.deleteMany();
-  console.log("  Cleaned.\n");
+  // ─── Passwords ──────────────────────────────────────────────
+  const adminPass = await bcrypt.hash('admin123', 10);
+  const userPass = await bcrypt.hash('user123', 10);
 
-  // 1. Users
-  console.log("  [1/17] Users...");
-  for (const u of USERS) {
-    await prisma.user.create({ data: { ...u } });
-  }
-  console.log(`        ${USERS.length} created`);
+  // ═══════════════════════════════════════════════════════════════
+  //  USERS
+  // ═══════════════════════════════════════════════════════════════
 
-  // 2. Driver profiles
-  console.log("  [2/17] Driver profiles...");
-  for (const dp of DRIVER_PROFILES) {
-    await prisma.driverProfile.create({ data: { ...dp } });
-  }
-  console.log(`        ${DRIVER_PROFILES.length} created`);
+  const admin = await prisma.user.upsert({
+    where: { phone: '+919000000001' },
+    update: {},
+    create: {
+      phone: '+919000000001',
+      name: 'Admin User',
+      email: 'admin@yaatra.com',
+      role: 'ADMIN',
+      password: adminPass,
+      gender: 'OTHER',
+      city: 'Delhi',
+      referralCode: 'ADMIN001',
+    },
+  });
 
-  // 3. Vehicles
-  console.log("  [3/17] Vehicles...");
-  for (const v of VEHICLES) {
-    await prisma.vehicles.create({ data: { ...v } });
-  }
-  console.log(`        ${VEHICLES.length} created`);
+  // ─── Riders ───────────────────────────────────────────────
+  const rider1 = await prisma.user.upsert({
+    where: { phone: '+919000000010' },
+    update: {},
+    create: {
+      phone: '+919000000010',
+      name: 'Rahul Sharma',
+      email: 'rahul@yaatra.com',
+      role: 'RIDER',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Delhi',
+      referralCode: 'RAHUL010',
+      emergencyContacts: JSON.stringify([
+        { name: 'Priya Sharma', phone: '+919000000011' },
+      ]),
+    },
+  });
 
-  // 4. Recurring rides (raw SQL for PostGIS geography)
-  console.log("  [4/17] Recurring rides (PostGIS LINESTRING)...");
-  for (const rr of RECURRING_RIDES) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO recurring_rides (ride_id, driverId, vehicleId, route, "schedule", "pricePerSeat", maxPassengers, "womenOnly", status, created_at, updated_at)
-       VALUES ($1, $2, $3, ST_GeographyFromText($4), $5::jsonb, $6, $7, $8, $9, NOW(), NOW())`,
-      rr.id,
-      rr.driverId,
-      rr.vehicleId,
-      rr.route,
-      JSON.stringify(rr.schedule),
-      rr.pricePerSeat,
-      rr.maxPassengers,
-      rr.womenOnly,
-      rr.status,
-    );
-  }
-  console.log(`        ${RECURRING_RIDES.length} created`);
+  const rider2 = await prisma.user.upsert({
+    where: { phone: '+919000000020' },
+    update: {},
+    create: {
+      phone: '+919000000020',
+      name: 'Anita Desai',
+      email: 'anita@yaatra.com',
+      role: 'RIDER',
+      password: userPass,
+      gender: 'FEMALE',
+      city: 'Mumbai',
+      referralCode: 'ANITA020',
+    },
+  });
 
-  // 5. Ride instances
-  console.log("  [5/17] Ride instances...");
-  for (const ri of RIDE_INSTANCES) {
-    await prisma.rideInstance.create({ data: { ...ri } });
-  }
-  console.log(`        ${RIDE_INSTANCES.length} created`);
+  const rider3 = await prisma.user.upsert({
+    where: { phone: '+919000000030' },
+    update: {},
+    create: {
+      phone: '+919000000030',
+      name: 'Vikram Patel',
+      email: 'vikram@yaatra.com',
+      role: 'RIDER',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Bangalore',
+      referralCode: 'VIKRAM030',
+    },
+  });
 
-  // 6. On-demand trips
-  console.log("  [6/17] On-demand trips...");
-  for (const t of TRIPS) {
-    await prisma.trip.create({ data: { ...t } });
-  }
-  console.log(`        ${TRIPS.length} created`);
+  const rider4 = await prisma.user.upsert({
+    where: { phone: '+919000000040' },
+    update: {},
+    create: {
+      phone: '+919000000040',
+      name: 'Sneha Gupta',
+      email: 'sneha@yaatra.com',
+      role: 'RIDER',
+      password: userPass,
+      gender: 'FEMALE',
+      city: 'Delhi',
+      referralCode: 'SNEHA040',
+    },
+  });
 
-  // 7. Bookings
-  console.log("  [7/17] Bookings...");
-  for (const b of BOOKINGS) {
-    await prisma.booking.create({ data: { ...b } });
-  }
-  console.log(`        ${BOOKINGS.length} created`);
+  const rider5 = await prisma.user.upsert({
+    where: { phone: '+919000000050' },
+    update: {},
+    create: {
+      phone: '+919000000050',
+      name: 'Arjun Nair',
+      email: 'arjun@yaatra.com',
+      role: 'RIDER',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Chennai',
+      referralCode: 'ARJUN050',
+      status: 'SUSPENDED',
+    },
+  });
 
-  // 8. Payments
-  console.log("  [8/17] Payments...");
-  for (const p of PAYMENTS) {
-    await prisma.payment.create({ data: { ...p } });
-  }
-  console.log(`        ${PAYMENTS.length} created`);
+  // ─── Professional Drivers ──────────────────────────────────
+  const proDriver1 = await prisma.user.upsert({
+    where: { phone: '+919000000100' },
+    update: {},
+    create: {
+      phone: '+919000000100',
+      name: 'Suresh Kumar',
+      email: 'suresh@yaatra.com',
+      role: 'PROFESSIONAL',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Delhi',
+      referralCode: 'SURESH100',
+    },
+  });
 
-  // 9. Trip locations
-  console.log("  [9/17] Trip locations...");
-  for (const loc of TRIP_LOCATIONS) {
-    await prisma.tripLocation.create({ data: { ...loc } });
-  }
-  console.log(`        ${TRIP_LOCATIONS.length} created`);
+  const proDriver2 = await prisma.user.upsert({
+    where: { phone: '+919000000101' },
+    update: {},
+    create: {
+      phone: '+919000000101',
+      name: 'Rajesh Verma',
+      email: 'rajesh@yaatra.com',
+      role: 'PROFESSIONAL',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Delhi',
+      referralCode: 'RAJESH101',
+    },
+  });
 
-  // 10. Wallets
-  console.log("  [10/17] Wallets...");
-  for (const w of WALLETS) {
-    await prisma.wallet.create({ data: { ...w } });
-  }
-  console.log(`        ${WALLETS.length} created`);
+  const proDriver3 = await prisma.user.upsert({
+    where: { phone: '+919000000102' },
+    update: {},
+    create: {
+      phone: '+919000000102',
+      name: 'Mohammed Ali',
+      email: 'mohammed@yaatra.com',
+      role: 'PROFESSIONAL',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Mumbai',
+      referralCode: 'MOHAMM102',
+    },
+  });
 
-  // 11. Wallet transactions
-  console.log("  [11/17] Wallet transactions...");
-  for (const wt of WALLET_TXNS) {
-    await prisma.walletTransaction.create({ data: { ...wt } });
-  }
-  console.log(`        ${WALLET_TXNS.length} created`);
+  // ─── Carpool Drivers ──────────────────────────────────────
+  const carpoolDriver1 = await prisma.user.upsert({
+    where: { phone: '+919000000200' },
+    update: {},
+    create: {
+      phone: '+919000000200',
+      name: 'Deepa Iyer',
+      email: 'deepa@yaatra.com',
+      role: 'CARPOOL',
+      password: userPass,
+      gender: 'FEMALE',
+      city: 'Bangalore',
+      referralCode: 'DEEPA200',
+    },
+  });
 
-  // 12. Ratings
-  console.log("  [12/17] Ratings...");
-  for (const r of RATINGS) {
-    await prisma.rating.create({ data: { ...r } });
-  }
-  console.log(`        ${RATINGS.length} created`);
+  const carpoolDriver2 = await prisma.user.upsert({
+    where: { phone: '+919000000201' },
+    update: {},
+    create: {
+      phone: '+919000000201',
+      name: 'Amit Singh',
+      email: 'amit@yaatra.com',
+      role: 'CARPOOL',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Delhi',
+      referralCode: 'AMIT201',
+    },
+  });
 
-  // 13. KYC documents
-  console.log("  [13/17] KYC documents...");
-  for (const d of KYC_DOCS) {
-    await prisma.kycDocument.create({ data: { ...d } });
-  }
-  console.log(`        ${KYC_DOCS.length} created`);
+  const carpoolDriver3 = await prisma.user.upsert({
+    where: { phone: '+919000000202' },
+    update: {},
+    create: {
+      phone: '+919000000202',
+      name: 'Pooja Reddy',
+      email: 'pooja@yaatra.com',
+      role: 'CARPOOL',
+      password: userPass,
+      gender: 'FEMALE',
+      city: 'Hyderabad',
+      referralCode: 'POOJA202',
+    },
+  });
 
-  // 14. Saved places
-  console.log("  [14/17] Saved places...");
-  for (const sp of SAVED_PLACES) {
-    await prisma.savedPlace.create({ data: { ...sp } });
-  }
-  console.log(`        ${SAVED_PLACES.length} created`);
+  // ─── BOTH role (driver + rider) ───────────────────────────
+  const bothUser = await prisma.user.upsert({
+    where: { phone: '+919000000300' },
+    update: {},
+    create: {
+      phone: '+919000000300',
+      name: 'Karthik Menon',
+      email: 'karthik@yaatra.com',
+      role: 'BOTH',
+      password: userPass,
+      gender: 'MALE',
+      city: 'Kochi',
+      referralCode: 'KARTH300',
+    },
+  });
 
-  // 15. Notifications
-  console.log("  [15/17] Notifications...");
-  for (const n of NOTIFICATIONS) {
-    await prisma.notification.create({ data: { ...n } });
-  }
-  console.log(`        ${NOTIFICATIONS.length} created`);
+  console.log('Users seeded');
 
-  // 16. Disputes
-  console.log("  [16/17] Disputes...");
-  for (const d of DISPUTES) {
-    await prisma.dispute.create({ data: { ...d } });
-  }
-  console.log(`        ${DISPUTES.length} created`);
+  // ═══════════════════════════════════════════════════════════════
+  //  DRIVER PROFILES
+  // ═══════════════════════════════════════════════════════════════
 
-  // 17. Emergency alerts
-  console.log("  [17/17] Emergency alerts...");
-  for (const ea of EMERGENCY_ALERTS) {
-    await prisma.emergencyAlert.create({ data: { ...ea } });
-  }
-  console.log(`        ${EMERGENCY_ALERTS.length} created`);
+  const dp1 = await prisma.driverProfile.upsert({
+    where: { driverId: proDriver1.id },
+    update: {},
+    create: {
+      driverId: proDriver1.id,
+      driverType: 'PROFESSIONAL',
+      isOnline: true,
+      currentLat: 28.6139,
+      currentLng: 77.209,
+      currentZone: 'central-delhi',
+      verificationStatus: 'PASSED',
+      totalRating: 4.5,
+      ratingCount: 120,
+      badges: JSON.stringify(['top_rider', 'safe_driver']),
+    },
+  });
 
-  // ── Summary ────────────────────────────────────────────────
-  console.log("\n  ═══════════════════════════════════════════");
-  console.log("  SEED COMPLETE");
-  console.log("  ═══════════════════════════════════════════");
-  console.log(`  Users:             ${USERS.length}`);
-  console.log(`  Driver profiles:   ${DRIVER_PROFILES.length}`);
-  console.log(`  Vehicles:          ${VEHICLES.length}`);
-  console.log(`  Recurring rides:   ${RECURRING_RIDES.length}`);
-  console.log(`  Ride instances:    ${RIDE_INSTANCES.length}`);
-  console.log(`  Trips (on-demand): ${TRIPS.length}`);
-  console.log(`  Bookings:          ${BOOKINGS.length}`);
-  console.log(`  Payments:          ${PAYMENTS.length}`);
-  console.log(`  Trip locations:    ${TRIP_LOCATIONS.length}`);
-  console.log(`  Wallets:           ${WALLETS.length}`);
-  console.log(`  Wallet txns:       ${WALLET_TXNS.length}`);
-  console.log(`  Ratings:           ${RATINGS.length}`);
-  console.log(`  KYC docs:          ${KYC_DOCS.length}`);
-  console.log(`  Saved places:      ${SAVED_PLACES.length}`);
-  console.log(`  Notifications:     ${NOTIFICATIONS.length}`);
-  console.log(`  Disputes:          ${DISPUTES.length}`);
-  console.log(`  Emergency alerts:  ${EMERGENCY_ALERTS.length}`);
-  console.log("  ═══════════════════════════════════════════\n");
+  const dp2 = await prisma.driverProfile.upsert({
+    where: { driverId: proDriver2.id },
+    update: {},
+    create: {
+      driverId: proDriver2.id,
+      driverType: 'PROFESSIONAL',
+      isOnline: true,
+      currentLat: 28.628,
+      currentLng: 77.219,
+      currentZone: 'central-delhi',
+      verificationStatus: 'PASSED',
+      totalRating: 4.2,
+      ratingCount: 80,
+    },
+  });
+
+  const dp3 = await prisma.driverProfile.upsert({
+    where: { driverId: proDriver3.id },
+    update: {},
+    create: {
+      driverId: proDriver3.id,
+      driverType: 'PROFESSIONAL',
+      isOnline: false,
+      currentLat: 19.076,
+      currentLng: 72.8777,
+      currentZone: 'south-mumbai',
+      verificationStatus: 'PASSED',
+      totalRating: 4.8,
+      ratingCount: 200,
+    },
+  });
+
+  const dp4 = await prisma.driverProfile.upsert({
+    where: { driverId: carpoolDriver1.id },
+    update: {},
+    create: {
+      driverId: carpoolDriver1.id,
+      driverType: 'CARPOOL',
+      isOnline: false,
+      verificationStatus: 'PASSED',
+      totalRating: 4.7,
+      ratingCount: 30,
+    },
+  });
+
+  const dp5 = await prisma.driverProfile.upsert({
+    where: { driverId: carpoolDriver2.id },
+    update: {},
+    create: {
+      driverId: carpoolDriver2.id,
+      driverType: 'CARPOOL',
+      isOnline: true,
+      currentLat: 28.7041,
+      currentLng: 77.1025,
+      currentZone: 'north-delhi',
+      verificationStatus: 'PASSED',
+      totalRating: 4.0,
+      ratingCount: 15,
+    },
+  });
+
+  const dp6 = await prisma.driverProfile.upsert({
+    where: { driverId: carpoolDriver3.id },
+    update: {},
+    create: {
+      driverId: carpoolDriver3.id,
+      driverType: 'CARPOOL',
+      isOnline: false,
+      verificationStatus: 'PENDING',
+      totalRating: 0,
+      ratingCount: 0,
+    },
+  });
+
+  const dp7 = await prisma.driverProfile.upsert({
+    where: { driverId: bothUser.id },
+    update: {},
+    create: {
+      driverId: bothUser.id,
+      driverType: 'BOTH',
+      isOnline: false,
+      verificationStatus: 'PASSED',
+      totalRating: 4.3,
+      ratingCount: 50,
+    },
+  });
+
+  console.log('Driver profiles seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  VEHICLES
+  // ═══════════════════════════════════════════════════════════════
+
+  const v1 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'DL-01-AB-1234' },
+    update: {},
+    create: {
+      driverId: dp1.driverId,
+      make: 'Maruti',
+      model: 'Swift Dzire',
+      color: 'White',
+      licensePlate: 'DL-01-AB-1234',
+      capacity: 4,
+      isCommercial: true,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  const v2 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'DL-02-CD-5678' },
+    update: {},
+    create: {
+      driverId: dp2.driverId,
+      make: 'Hyundai',
+      model: 'Verna',
+      color: 'Black',
+      licensePlate: 'DL-02-CD-5678',
+      capacity: 4,
+      isCommercial: true,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  const v3 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'MH-01-EF-9012' },
+    update: {},
+    create: {
+      driverId: dp3.driverId,
+      make: 'Toyota',
+      model: 'Innova Crysta',
+      color: 'Silver',
+      licensePlate: 'MH-01-EF-9012',
+      capacity: 7,
+      isCommercial: true,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  const v4 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'KA-01-GH-3456' },
+    update: {},
+    create: {
+      driverId: dp4.driverId,
+      make: 'Hyundai',
+      model: 'Creta',
+      color: 'Blue',
+      licensePlate: 'KA-01-GH-3456',
+      capacity: 5,
+      isCommercial: false,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  const v5 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'DL-03-IJ-7890' },
+    update: {},
+    create: {
+      driverId: dp5.driverId,
+      make: 'Maruti',
+      model: 'Baleno',
+      color: 'Red',
+      licensePlate: 'DL-03-IJ-7890',
+      capacity: 5,
+      isCommercial: false,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  const v6 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'TS-01-KL-2345' },
+    update: {},
+    create: {
+      driverId: dp6.driverId,
+      make: 'Kia',
+      model: 'Seltos',
+      color: 'Grey',
+      licensePlate: 'TS-01-KL-2345',
+      capacity: 5,
+      isCommercial: false,
+      verificationStatus: 'PENDING',
+    },
+  });
+
+  const v7 = await prisma.vehicles.upsert({
+    where: { licensePlate: 'KL-07-MN-6789' },
+    update: {},
+    create: {
+      driverId: dp7.driverId,
+      make: 'Honda',
+      model: 'Amaze',
+      color: 'White',
+      licensePlate: 'KL-07-MN-6789',
+      capacity: 4,
+      isCommercial: false,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  console.log('Vehicles seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  WALLETS + TRANSACTIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  const w1 = await prisma.wallet.upsert({
+    where: { userId: rider1.id },
+    update: {},
+    create: { userId: rider1.id, balance: 1500 },
+  });
+  const w2 = await prisma.wallet.upsert({
+    where: { userId: rider2.id },
+    update: {},
+    create: { userId: rider2.id, balance: 3200 },
+  });
+  const w3 = await prisma.wallet.upsert({
+    where: { userId: rider3.id },
+    update: {},
+    create: { userId: rider3.id, balance: 750 },
+  });
+  const w4 = await prisma.wallet.upsert({
+    where: { userId: rider4.id },
+    update: {},
+    create: { userId: rider4.id, balance: 5000 },
+  });
+  await prisma.wallet.upsert({
+    where: { userId: rider5.id },
+    update: {},
+    create: { userId: rider5.id, balance: 0 },
+  });
+  const w6 = await prisma.wallet.upsert({
+    where: { userId: proDriver1.id },
+    update: {},
+    create: { userId: proDriver1.id, balance: 8500 },
+  });
+  const w7 = await prisma.wallet.upsert({
+    where: { userId: proDriver2.id },
+    update: {},
+    create: { userId: proDriver2.id, balance: 4200 },
+  });
+  const w8 = await prisma.wallet.upsert({
+    where: { userId: carpoolDriver1.id },
+    update: {},
+    create: { userId: carpoolDriver1.id, balance: 1200 },
+  });
+  const w9 = await prisma.wallet.upsert({
+    where: { userId: carpoolDriver2.id },
+    update: {},
+    create: { userId: carpoolDriver2.id, balance: 600 },
+  });
+  await prisma.wallet.upsert({
+    where: { userId: bothUser.id },
+    update: {},
+    create: { userId: bothUser.id, balance: 2000 },
+  });
+
+  // Wallet transactions
+  await prisma.walletTransaction.createMany({
+    data: [
+      { walletId: w1.id, amount: 1000, type: 'TOPUP' },
+      { walletId: w1.id, amount: 500, type: 'TOPUP' },
+      { walletId: w1.id, amount: -250, type: 'DEBIT' },
+      { walletId: w2.id, amount: 5000, type: 'TOPUP' },
+      { walletId: w2.id, amount: -1800, type: 'DEBIT' },
+      { walletId: w4.id, amount: 5000, type: 'TOPUP' },
+      { walletId: w6.id, amount: 8500, type: 'TOPUP' },
+      { walletId: w6.id, amount: -3500, type: 'DEBIT' },
+      { walletId: w6.id, amount: 3500, type: 'TOPUP' },
+      { walletId: w7.id, amount: 4200, type: 'TOPUP' },
+      { walletId: w8.id, amount: 1200, type: 'TOPUP' },
+      { walletId: w9.id, amount: 600, type: 'TOPUP' },
+      { walletId: w1.id, amount: 200, type: 'REFUND' },
+    ],
+  });
+
+  console.log('Wallets + transactions seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  SAVED PLACES
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.savedPlace.createMany({
+    data: [
+      {
+        userId: rider1.id,
+        label: 'Home',
+        name: 'Rahul\'s Home',
+        address: 'Sector 14, Gurgaon',
+        lat: 28.4595,
+        lng: 77.0266,
+      },
+      {
+        userId: rider1.id,
+        label: 'Office',
+        name: 'Tech Park',
+        address: 'Cyber City, Gurgaon',
+        lat: 28.4949,
+        lng: 77.0883,
+      },
+      {
+        userId: rider1.id,
+        label: 'Gym',
+        name: 'FitLife Gym',
+        address: 'DLF Phase 3, Gurgaon',
+        lat: 28.4985,
+        lng: 77.0862,
+      },
+      {
+        userId: rider2.id,
+        label: 'Home',
+        name: 'Anita\'s Apartment',
+        address: 'Bandra West, Mumbai',
+        lat: 19.0596,
+        lng: 72.8295,
+      },
+      {
+        userId: rider2.id,
+        label: 'Office',
+        name: 'WeWork BKC',
+        address: 'Bandra Kurla Complex, Mumbai',
+        lat: 19.0607,
+        lng: 72.8696,
+      },
+      {
+        userId: rider3.id,
+        label: 'Home',
+        name: 'Vikram\'s Villa',
+        address: 'Koramangala, Bangalore',
+        lat: 12.9352,
+        lng: 77.6245,
+      },
+      {
+        userId: rider3.id,
+        label: 'Office',
+        name: 'Prestige Tech Park',
+        address: 'Outer Ring Road, Bangalore',
+        lat: 12.9968,
+        lng: 77.6898,
+      },
+      {
+        userId: rider4.id,
+        label: 'Home',
+        name: 'Sneha\'s Place',
+        address: 'Lajpat Nagar, Delhi',
+        lat: 28.5689,
+        lng: 77.2405,
+      },
+    ],
+  });
+
+  console.log('Saved places seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  KYC DOCUMENTS
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.kycDocument.createMany({
+    data: [
+      {
+        userId: proDriver1.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/proDriver1/aadhaar.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-07-01'),
+      },
+      {
+        userId: proDriver1.id,
+        type: 'DRIVING_LICENSE',
+        s3Key: 'kyc/proDriver1/dl.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-07-01'),
+      },
+      {
+        userId: proDriver2.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/proDriver2/aadhaar.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-07-15'),
+      },
+      {
+        userId: proDriver2.id,
+        type: 'DRIVING_LICENSE',
+        s3Key: 'kyc/proDriver2/dl.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-07-15'),
+      },
+      {
+        userId: proDriver3.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/proDriver3/aadhaar.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-06-20'),
+      },
+      {
+        userId: proDriver3.id,
+        type: 'DRIVING_LICENSE',
+        s3Key: 'kyc/proDriver3/dl.pdf',
+        status: 'FAILED',
+        rejectionReason: 'Document is blurry, please re-upload',
+      },
+      {
+        userId: carpoolDriver1.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/carpoolDriver1/aadhaar.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-08-01'),
+      },
+      {
+        userId: carpoolDriver2.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/carpoolDriver2/aadhaar.pdf',
+        status: 'PENDING',
+      },
+      {
+        userId: carpoolDriver3.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/carpoolDriver3/aadhaar.pdf',
+        status: 'PENDING',
+      },
+      {
+        userId: rider1.id,
+        type: 'AADHAAR',
+        s3Key: 'kyc/rider1/aadhaar.pdf',
+        status: 'PASSED',
+        verifiedAt: new Date('2026-08-10'),
+      },
+    ],
+  });
+
+  console.log('KYC documents seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  ON-DEMAND TRIPS
+  // ═══════════════════════════════════════════════════════════════
+
+  // Completed trip (rider1 → proDriver1)
+  const trip1 = await prisma.trip.create({
+    data: {
+      riderId: rider1.id,
+      driverId: proDriver1.id,
+      status: 'COMPLETED',
+      pickupLat: 28.6139,
+      pickupLng: 77.209,
+      dropLat: 28.4595,
+      dropLng: 77.0266,
+      pickupAddress: 'Connaught Place, New Delhi',
+      dropAddress: 'Sector 14, Gurgaon',
+      fareEstimate: 350,
+      fareFinal: 380,
+      distanceKm: 18.2,
+      durationMin: 42,
+      pickupTime: new Date(Date.now() - 86400000),
+      startTime: new Date(Date.now() - 86400000 + 300000),
+      endTime: new Date(Date.now() - 86400000 + 2820000),
+      surgeMultiplier: 1.0,
+    },
+  });
+
+  // Completed trip (rider2 → proDriver3 in Mumbai)
+  const trip2 = await prisma.trip.create({
+    data: {
+      riderId: rider2.id,
+      driverId: proDriver3.id,
+      status: 'COMPLETED',
+      pickupLat: 19.076,
+      pickupLng: 72.8777,
+      dropLat: 19.0596,
+      dropLng: 72.8295,
+      pickupAddress: 'Gateway of India, Mumbai',
+      dropAddress: 'Bandra West, Mumbai',
+      fareEstimate: 200,
+      fareFinal: 220,
+      distanceKm: 10.5,
+      durationMin: 30,
+      pickupTime: new Date(Date.now() - 172800000),
+      startTime: new Date(Date.now() - 172800000 + 180000),
+      endTime: new Date(Date.now() - 172800000 + 1980000),
+      surgeMultiplier: 1.2,
+    },
+  });
+
+  // Completed trip with higher surge (rider4 → proDriver2)
+  const trip3 = await prisma.trip.create({
+    data: {
+      riderId: rider4.id,
+      driverId: proDriver2.id,
+      status: 'COMPLETED',
+      pickupLat: 28.5689,
+      pickupLng: 77.2405,
+      dropLat: 28.628,
+      dropLng: 77.219,
+      pickupAddress: 'Lajpat Nagar, Delhi',
+      dropAddress: 'Nehru Place, Delhi',
+      fareEstimate: 120,
+      fareFinal: 180,
+      distanceKm: 5.8,
+      durationMin: 18,
+      pickupTime: new Date(Date.now() - 43200000),
+      startTime: new Date(Date.now() - 43200000 + 120000),
+      endTime: new Date(Date.now() - 43200000 + 1200000),
+      surgeMultiplier: 1.5,
+    },
+  });
+
+  // In-progress trip (rider3 → proDriver1)
+  const trip4 = await prisma.trip.create({
+    data: {
+      riderId: rider3.id,
+      driverId: proDriver1.id,
+      status: 'IN_PROGRESS',
+      pickupLat: 28.628,
+      pickupLng: 77.219,
+      dropLat: 28.4595,
+      dropLng: 77.0266,
+      pickupAddress: 'AIIMS, Delhi',
+      dropAddress: 'Cyber City, Gurgaon',
+      fareEstimate: 400,
+      distanceKm: 22.1,
+      pickupTime: new Date(),
+      startTime: new Date(),
+      surgeMultiplier: 1.0,
+    },
+  });
+
+  // Cancelled trip (rider1 cancelled)
+  const trip5 = await prisma.trip.create({
+    data: {
+      riderId: rider1.id,
+      driverId: proDriver2.id,
+      status: 'CANCELLED',
+      pickupLat: 28.4985,
+      pickupLng: 77.0862,
+      dropLat: 28.6139,
+      dropLng: 77.209,
+      pickupAddress: 'DLF Phase 3, Gurgaon',
+      dropAddress: 'Connaught Place, New Delhi',
+      fareEstimate: 380,
+      distanceKm: 19.5,
+      pickupTime: new Date(Date.now() - 3600000),
+      surgeMultiplier: 1.0,
+    },
+  });
+
+  // Searching trip (no driver yet)
+  await prisma.trip.create({
+    data: {
+      riderId: rider4.id,
+      status: 'SEARCHING',
+      pickupLat: 28.5355,
+      pickupLng: 77.391,
+      dropLat: 28.4595,
+      dropLng: 77.0266,
+      pickupAddress: 'Noida Sector 62',
+      dropAddress: 'Sector 14, Gurgaon',
+      fareEstimate: 450,
+      distanceKm: 28.3,
+      pickupTime: new Date(Date.now() + 3600000),
+      surgeMultiplier: 1.0,
+    },
+  });
+
+  console.log('Trips seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  TRIP LOCATIONS (tracking history for completed trips)
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.tripLocation.createMany({
+    data: [
+      {
+        tripId: trip1.id,
+        lat: 28.6139,
+        lng: 77.209,
+        speedKmh: 0,
+        recordedAt: new Date(Date.now() - 86400000 + 300000),
+      },
+      {
+        tripId: trip1.id,
+        lat: 28.61,
+        lng: 77.205,
+        speedKmh: 25,
+        recordedAt: new Date(Date.now() - 86400000 + 600000),
+      },
+      {
+        tripId: trip1.id,
+        lat: 28.58,
+        lng: 77.18,
+        speedKmh: 45,
+        recordedAt: new Date(Date.now() - 86400000 + 1200000),
+      },
+      {
+        tripId: trip1.id,
+        lat: 28.52,
+        lng: 77.1,
+        speedKmh: 50,
+        recordedAt: new Date(Date.now() - 86400000 + 2100000),
+      },
+      {
+        tripId: trip1.id,
+        lat: 28.4595,
+        lng: 77.0266,
+        speedKmh: 0,
+        recordedAt: new Date(Date.now() - 86400000 + 2820000),
+      },
+    ],
+  });
+
+  console.log('Trip locations seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PAYMENTS (for trips)
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.payment.createMany({
+    data: [
+      {
+        tripId: trip1.id,
+        amount: 380,
+        type: 'CAPTURE',
+        status: 'SUCCEEDED',
+        providerTransactionId: 'pay_trip1_001',
+      },
+      {
+        tripId: trip2.id,
+        amount: 220,
+        type: 'CAPTURE',
+        status: 'SUCCEEDED',
+        providerTransactionId: 'pay_trip2_001',
+      },
+      {
+        tripId: trip3.id,
+        amount: 180,
+        type: 'CAPTURE',
+        status: 'SUCCEEDED',
+        providerTransactionId: 'pay_trip3_001',
+      },
+    ],
+  });
+
+  console.log('Payments seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  RATINGS
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.rating.createMany({
+    data: [
+      {
+        reviewerId: rider1.id,
+        revieweeId: proDriver1.id,
+        tripId: trip1.id,
+        score: 5,
+        comment: 'Excellent ride! Very professional driver.',
+        tags: ['punctual', 'safe', 'clean_car', 'polite'],
+      },
+      {
+        reviewerId: proDriver1.id,
+        revieweeId: rider1.id,
+        tripId: trip1.id,
+        score: 5,
+        comment: 'Polite and punctual passenger.',
+        tags: ['punctual', 'respectful'],
+      },
+      {
+        reviewerId: rider2.id,
+        revieweeId: proDriver3.id,
+        tripId: trip2.id,
+        score: 4,
+        comment: 'Good ride, took a slightly longer route though.',
+        tags: ['safe', 'clean_car'],
+      },
+      {
+        reviewerId: rider4.id,
+        revieweeId: proDriver2.id,
+        tripId: trip3.id,
+        score: 3,
+        comment: 'Average ride, driver was on the phone.',
+        tags: ['safe'],
+      },
+      {
+        reviewerId: rider1.id,
+        revieweeId: proDriver2.id,
+        tripId: null,
+        score: 2,
+        comment: 'Driver arrived late and was rude.',
+        tags: ['late', 'rude'],
+      },
+    ],
+  });
+
+  console.log('Ratings seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.notification.createMany({
+    data: [
+      {
+        userId: rider1.id,
+        type: 'TRIP_COMPLETED',
+        payload: {
+          tripId: trip1.id,
+          message: 'Your trip from CP to Gurgaon is completed.',
+        },
+      },
+      {
+        userId: rider1.id,
+        type: 'WALLET_TOPUP',
+        payload: { amount: 1000, message: 'Wallet topped up successfully.' },
+      },
+      {
+        userId: rider1.id,
+        type: 'PAYMENT_RECEIVED',
+        payload: {
+          amount: 380,
+          message: 'Payment of ₹380 received for your trip.',
+        },
+        readAt: new Date(),
+      },
+      {
+        userId: rider2.id,
+        type: 'TRIP_COMPLETED',
+        payload: {
+          tripId: trip2.id,
+          message: 'Your Mumbai trip is completed. Rate your driver!',
+        },
+      },
+      {
+        userId: rider4.id,
+        type: 'TRIP_CANCELLED',
+        payload: {
+          tripId: trip5.id,
+          message: 'Your trip to Connaught Place was cancelled.',
+        },
+      },
+      {
+        userId: proDriver1.id,
+        type: 'NEW_BOOKING',
+        payload: { tripId: trip4.id, message: 'New trip assigned to you!' },
+      },
+      {
+        userId: proDriver1.id,
+        type: 'RATING_RECEIVED',
+        payload: { score: 5, message: 'You received a 5-star rating!' },
+        readAt: new Date(),
+      },
+      {
+        userId: admin.id,
+        type: 'SYSTEM_ALERT',
+        payload: {
+          message: 'New driver registration pending verification.',
+        },
+      },
+    ],
+  });
+
+  console.log('Notifications seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  EMERGENCY ALERTS
+  // ═══════════════════════════════════════════════════════════════
+
+  await prisma.emergencyAlert.createMany({
+    data: [
+      {
+        userId: rider1.id,
+        tripId: trip1.id,
+        lat: 28.58,
+        lng: 77.18,
+        status: 'RESOLVED',
+      },
+      {
+        userId: rider4.id,
+        tripId: null,
+        lat: 28.5689,
+        lng: 77.2405,
+        status: 'OPEN',
+      },
+    ],
+  });
+
+  console.log('Emergency alerts seeded');
+
+  // ═══════════════════════════════════════════════════════════════
+  //  SUMMARY
+  // ═══════════════════════════════════════════════════════════════
+
+  console.log('\n=== Seeding complete! ===\n');
+  console.log('Test Credentials:');
+  console.log('─'.repeat(55));
+  console.log('  Admin:        +919000000001 / admin123');
+  console.log('─'.repeat(55));
+  console.log('  RIDERS:');
+  console.log('    Rahul:      +919000000010 / user123  (Delhi, active)');
+  console.log('    Anita:      +919000000020 / user123  (Mumbai, active)');
+  console.log('    Vikram:     +919000000030 / user123  (Bangalore, active)');
+  console.log('    Sneha:      +919000000040 / user123  (Delhi, active)');
+  console.log('    Arjun:      +919000000050 / user123  (Chennai, SUSPENDED)');
+  console.log('─'.repeat(55));
+  console.log('  PROFESSIONAL DRIVERS:');
+  console.log('    Suresh:     +919000000100 / user123  (Delhi, online)');
+  console.log('    Rajesh:     +919000000101 / user123  (Delhi, online)');
+  console.log('    Mohammed:   +919000000102 / user123  (Mumbai, offline)');
+  console.log('─'.repeat(55));
+  console.log('  CARPOOL DRIVERS:');
+  console.log('    Deepa:      +919000000200 / user123  (Bangalore, offline)');
+  console.log('    Amit:       +919000000201 / user123  (Delhi, online)');
+  console.log('    Pooja:      +919000000202 / user123  (Hyderabad, PENDING KYC)');
+  console.log('─'.repeat(55));
+  console.log('  DUAL ROLE (Driver + Rider):');
+  console.log('    Karthik:    +919000000300 / user123  (Kochi, active)');
+  console.log('─'.repeat(55));
+  console.log('\nScenario Coverage:');
+  console.log('  - 3 completed trips (varies: surge, ratings, locations)');
+  console.log('  - 1 in-progress trip');
+  console.log('  - 1 cancelled trip');
+  console.log('  - 1 searching (no driver assigned)');
+  console.log('  - 5 ratings (2-5 stars, with tags)');
+  console.log('  - 10 KYC docs (PASSED, PENDING, FAILED)');
+  console.log('  - 13 wallet transactions (TOPUP, DEBIT, REFUND)');
+  console.log('  - 8 notifications (various types, read/unread)');
+  console.log('  - 2 emergency alerts (OPEN, RESOLVED)');
+  console.log('  - 8 saved places across 4 riders');
 }
 
 main()
-  .catch((e) => {
-    console.error("\nSeed failed:", e);
+  .then(() => prisma.$disconnect())
+  .catch((e: Error) => {
+    console.error('Seed failed:', e);
+    prisma.$disconnect();
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });

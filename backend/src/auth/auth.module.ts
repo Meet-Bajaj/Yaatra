@@ -20,6 +20,6 @@ import { SmsService } from './sms.service';
   ],
   providers: [AuthService, JwtStrategy, OtpService, SmsService],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, PassportModule, JwtStrategy],
 })
 export class AuthModule {}

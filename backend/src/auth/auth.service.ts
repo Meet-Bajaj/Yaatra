@@ -120,12 +120,21 @@ export class AuthService {
   // ─── Password Flow (admin/web fallback) ───────────────────────
 
   async register(registerDto: RegisterDto) {
-    const existingUser = await this.prisma.user.findUnique({
+    const existingPhone = await this.prisma.user.findUnique({
       where: { phone: registerDto.phone },
     });
 
-    if (existingUser) {
+    if (existingPhone) {
       throw new ConflictException('User with this phone number already exists');
+    }
+
+    if (registerDto.email) {
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email: registerDto.email },
+      });
+      if (existingEmail) {
+        throw new ConflictException('User with this email already exists');
+      }
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);

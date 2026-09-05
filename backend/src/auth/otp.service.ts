@@ -16,7 +16,7 @@ const RESEND_COOLDOWN_SECONDS = 30;
 @Injectable()
 export class OtpService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OtpService.name);
-  private redis: Redis;
+  private redis: Redis | null = null;
   private readonly masterOtpEnabled: boolean;
   private readonly masterOtpValue: string;
 
@@ -34,7 +34,7 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  onModuleInit() {
+  async onModuleInit() {
     const redisUrl = this.config.get<string>(
       'redis.url',
       'redis://localhost:6379',
@@ -47,13 +47,22 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    this.redis.on('connect', () => {
-      this.logger.log('Redis connected for OTP service');
-    });
-
-    this.redis.on('error', (err: Error) => {
-      this.logger.warn(`Redis connection error: ${err.message}`);
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.redis!.once('ready', () => {
+          this.logger.log('Redis connected for OTP service');
+          resolve();
+        });
+        this.redis!.once('error', (err: Error) => {
+          this.logger.warn(`Redis connection error: ${err.message}`);
+          this.redis = null;
+          resolve(); // Don't block startup
+        });
+      });
+    } catch {
+      this.logger.warn('Redis not available — OTP service degraded');
+      this.redis = null;
+    }
   }
 
   onModuleDestroy() {
@@ -84,6 +93,12 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
   async generateOtp(
     phone: string,
   ): Promise<{ code: string; expiresIn: number }> {
+    if (!this.redis) {
+      throw new Error(
+        'Redis not available. Please try again or use master OTP.',
+      );
+    }
+
     // Check lockout
     const isLocked = await this.redis.get(this.lockoutKey(phone));
     if (isLocked) {
@@ -131,6 +146,10 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
    * Returns true if valid, throws on failure.
    */
   async verifyOtp(phone: string, code: string): Promise<boolean> {
+    if (!this.redis) {
+      throw new Error('Redis not available. Cannot verify OTP.');
+    }
+
     // Check lockout
     const isLocked = await this.redis.get(this.lockoutKey(phone));
     if (isLocked) {
@@ -181,6 +200,7 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
    * Check if the phone is currently locked out.
    */
   async isLocked(phone: string): Promise<boolean> {
+    if (!this.redis) return false;
     const isLocked = await this.redis.get(this.lockoutKey(phone));
     return isLocked === '1';
   }
@@ -189,6 +209,7 @@ export class OtpService implements OnModuleInit, OnModuleDestroy {
    * Get remaining cooldown seconds for resend.
    */
   async getResendCooldown(phone: string): Promise<number> {
+    if (!this.redis) return 0;
     const ttl = await this.redis.ttl(this.cooldownKey(phone));
     return ttl > 0 ? ttl : 0;
   }

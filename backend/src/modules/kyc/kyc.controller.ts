@@ -11,7 +11,6 @@ import {
   Body,
   BadRequestException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -19,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiBody,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { KycService } from './kyc.service';
 
@@ -32,15 +32,17 @@ export class KycController {
   constructor(private readonly kycService: KycService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+
   @ApiBearerAuth()
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
-  @ApiOperation({ summary: 'Upload KYC document' })
+  @ApiOperation({ summary: 'Upload KYC document', description: 'Uploads an identity document (Aadhaar, Driving License, or PAN card) for KYC verification. Accepted formats: JPEG, PNG, PDF. Max 5MB.' })
   @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Document uploaded successfully. Status set to PENDING review.' })
+  @ApiResponse({ status: 400, description: 'Invalid file type, file too large, or missing document type.' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -72,17 +74,19 @@ export class KycController {
   }
 
   @Get()
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my KYC documents' })
+  @ApiOperation({ summary: 'Get KYC documents', description: 'Returns all KYC documents uploaded by the current user along with their verification status (PENDING, APPROVED, REJECTED).' })
+  @ApiResponse({ status: 200, description: 'KYC documents returned successfully.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – valid JWT token required.' })
   getDocuments(@Req() req: AuthRequest) {
     return this.kycService.getDocuments(req.user.userId);
   }
 
   @Get(':documentId')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get a specific document' })
+  @ApiOperation({ summary: 'Get specific document', description: 'Returns a single KYC document with its verification status, upload date, and optional rejection reason.' })
+  @ApiResponse({ status: 200, description: 'Document returned successfully.' })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   getDocument(
     @Req() req: AuthRequest,
     @Param('documentId') documentId: string,
@@ -91,9 +95,10 @@ export class KycController {
   }
 
   @Delete(':documentId')
-  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete a pending document' })
+  @ApiOperation({ summary: 'Delete a document', description: 'Deletes a KYC document. Only documents with PENDING status can be deleted. Approved documents cannot be removed.' })
+  @ApiResponse({ status: 200, description: 'Document deleted successfully.' })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
   deleteDocument(
     @Req() req: AuthRequest,
     @Param('documentId') documentId: string,

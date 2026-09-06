@@ -1,5 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, Body, Headers, HttpCode } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WebhookService } from './webhook.service';
 
 @ApiTags('payments-webhook')
@@ -8,8 +8,14 @@ export class WebhookController {
   constructor(private readonly webhookService: WebhookService) {}
 
   @Post('webhook')
-  @ApiOperation({ summary: 'Payment gateway webhook callback' })
-  handleWebhook(@Body() _body: Record<string, unknown>) {
-    return { message: 'TODO: implement webhook handler' };
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Razorpay webhook', description: 'Receives and processes Razorpay payment event callbacks. Verifies signature before processing. Handles payment.captured, payment.failed, and refund events.' })
+  @ApiResponse({ status: 200, description: 'Webhook processed successfully.' })
+  @ApiResponse({ status: 400, description: 'Invalid webhook signature or payload.' })
+  handleWebhook(
+    @Body() body: Record<string, unknown>,
+    @Headers('x-razorpay-signature') signature: string,
+  ) {
+    return this.webhookService.processWebhook(body, signature);
   }
 }

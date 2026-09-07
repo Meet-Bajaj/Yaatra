@@ -37,6 +37,16 @@ export class SearchRidesDto {
   @IsNumber()
   dropLng: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  pickupAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dropAddress?: string;
+
   @ApiPropertyOptional({ enum: RideFilter, default: RideFilter.ALL })
   @IsOptional()
   @IsEnum(RideFilter)

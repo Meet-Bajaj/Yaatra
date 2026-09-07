@@ -9,7 +9,6 @@ import {
   Req,
   Query,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
   ApiOperation,
@@ -28,21 +27,28 @@ export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   @Get()
-  @UseGuards(AuthGuard('jwt'))
+
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my recurring commute subscriptions' })
-  @ApiResponse({ status: 200, description: 'Subscriptions returned' })
+  @ApiOperation({
+    summary: 'Get my recurring commute subscriptions',
+    description: 'Retrieve all active and paused scheduled ride subscriptions for the current user.',
+  })
+  @ApiResponse({ status: 200, description: 'Scheduled rides returned' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid token' })
   getSchedules(@Req() req: AuthRequest) {
     return this.scheduleService.getMySubscriptions(req.user.userId);
   }
 
   @Get('matches')
-  @UseGuards(AuthGuard('jwt'))
+
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Find matching carpool offers for a route/schedule',
+    description: 'Search for available carpool offers that match the given pickup/drop locations and optional date/time.',
   })
   @ApiResponse({ status: 200, description: 'Matching offers returned' })
+  @ApiResponse({ status: 400, description: 'Invalid location parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid token' })
   getMatches(
     @Req() req: AuthRequest,
     @Query('pickupLat') pickupLat: string,
@@ -64,10 +70,16 @@ export class ScheduleController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Pause/edit a schedule' })
-  @ApiResponse({ status: 200, description: 'Schedule updated' })
+  @ApiOperation({
+    summary: 'Pause/edit a schedule',
+    description: 'Update a scheduled ride subscription – pause, resume, or modify schedule parameters.',
+  })
+  @ApiResponse({ status: 200, description: 'Schedule updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid update payload' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid token' })
+  @ApiResponse({ status: 404, description: 'Schedule not found' })
   updateSchedule(
     @Req() req: AuthRequest,
     @Param('id') id: string,
@@ -77,10 +89,15 @@ export class ScheduleController {
   }
 
   @Post('instances/:id/cancel')
-  @UseGuards(AuthGuard('jwt'))
+
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cancel a single ride instance' })
-  @ApiResponse({ status: 200, description: 'Instance cancelled' })
+  @ApiOperation({
+    summary: 'Cancel a single ride instance',
+    description: 'Cancel one specific instance of a scheduled ride without affecting the overall subscription.',
+  })
+  @ApiResponse({ status: 200, description: 'Ride instance cancelled' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid token' })
+  @ApiResponse({ status: 404, description: 'Ride instance not found' })
   cancelInstance(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.scheduleService.cancelInstance(req.user.userId, id);
   }

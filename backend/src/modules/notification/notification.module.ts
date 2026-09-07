@@ -3,7 +3,6 @@ import { NotificationService } from './notification.service';
 import { NotificationController } from './notification.controller';
 import { NotificationGateway } from './notification.gateway';
 import { PrismaService } from '../../prisma/prisma.service';
-
 @Module({
   controllers: [NotificationController],
   providers: [NotificationService, NotificationGateway, PrismaService],

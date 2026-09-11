@@ -17,6 +17,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { S3Service } from '../kyc/s3.service';
 import { VerifyDocDto } from './dto/verify-doc.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 
@@ -26,7 +27,10 @@ import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 @Roles('ADMIN')
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly s3Service: S3Service,
+  ) {}
 
   // ─── User Management ────────────────────────────────────────────
 
@@ -112,6 +116,19 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'Document not found with the provided ID.' })
   verifyDoc(@Param('id') id: string, @Body() dto: VerifyDocDto) {
     return this.adminService.verifyDocument(id, dto);
+  }
+
+  @Get('docs/:id/url')
+  @ApiOperation({
+    summary: 'Get presigned URL for document preview',
+    description: 'Returns a temporary presigned URL to view/download a KYC document. Admin only.',
+  })
+  @ApiResponse({ status: 200, description: 'Presigned URL returned.' })
+  @ApiResponse({ status: 404, description: 'Document not found.' })
+  async getDocUrl(@Param('id') id: string) {
+    const doc = await this.adminService.getDocumentById(id);
+    const url = await this.s3Service.getPresignedUrl(doc.s3Key, 3600);
+    return { url, expiresIn: 3600 };
   }
 
   // ─── Disputes ───────────────────────────────────────────────────

@@ -185,6 +185,16 @@ export class AdminService {
     return { documents, total, skip, take };
   }
 
+  async getDocumentById(docId: string) {
+    const doc = await this.prisma.kycDocument.findUnique({
+      where: { id: docId },
+    });
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+    return doc;
+  }
+
   async verifyDocument(docId: string, dto: VerifyDocDto) {
     const document = await this.prisma.kycDocument.findUnique({
       where: { id: docId },

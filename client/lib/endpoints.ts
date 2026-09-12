@@ -34,6 +34,7 @@ export const API = {
     updateUserStatus: (id: string) => `/admin/users/${id}/status`,
     docsQueue: "/admin/docs/queue",
     verifyDoc: (id: string) => `/admin/docs/${id}`,
+    docUrl: (id: string) => `/admin/docs/${id}/url`,
     disputes: "/admin/disputes",
     resolveDispute: (id: string) => `/admin/disputes/${id}`,
     stats: "/admin/stats",

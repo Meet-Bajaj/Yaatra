@@ -11,7 +11,6 @@ import {
   Bell,
   Shield,
   User,
-  Settings,
   LogOut,
   X,
 } from "lucide-react";
@@ -27,7 +26,6 @@ const navItems = [
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/safety", label: "Safety", icon: Shield },
   { href: "/profile", label: "Profile", icon: User },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const driverItems = [

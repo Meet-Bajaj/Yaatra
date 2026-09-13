@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaatra — Unified Shared Mobility Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #6C63FF;
+            --primary-light: #8B83FF;
+            --accent: #00D9FF;
+            --bg-dark: #0B0B1A;
+            --bg-card: #12122A;
+            --bg-card-alt: #1A1A3E;
+            --text: #E8E8F0;
+            --text-muted: #8888AA;
+            --success: #4ADE80;
+            --warning: #FBBF24;
+            --danger: #F87171;
+            --gradient-1: linear-gradient(135deg, #6C63FF, #00D9FF);
+            --gradient-2: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            --gradient-3: linear-gradient(135deg, #4ADE80, #00D9FF);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        .slide-deck {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        @media (min-width: 769px) {
+            .slide-deck {
+                max-width: calc(100vh * 16 / 9);
+                max-height: calc(100vw * 9 / 16);
+                margin: auto;
+                position: absolute;
+                inset: 0;
+            }
+        }
+
+        .slide {
+            position: absolute;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 60px 80px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s;
+            background: var(--bg-dark);
+            overflow: hidden;
+        }
+        .slide.active { opacity: 1; visibility: visible; }
+
+        .slide-content {
+            width: 100%;
+            max-width: 1200px;
+            max-height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Typography */
+        h1 { font-size: clamp(36px, 5vw, 64px); font-weight: 800; line-height: 1.1; }
+        h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 700; line-height: 1.2; }
+        h3 { font-size: clamp(18px, 2.5vw, 28px); font-weight: 600; }
+        p, li { font-size: clamp(14px, 1.8vw, 20px); line-height: 1.6; color: var(--text-muted); }
+
+        .gradient-text {
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .gradient-text-warm {
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: var(--gradient-1);
+            transition: width 0.3s;
+            z-index: 1000;
+        }
+
+        /* Navigation */
+        .nav-controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 1000;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); }
+        .slide-counter { color: var(--text-muted); font-size: 14px; min-width: 60px; text-align: center; }
+
+        /* Slide number badge */
+        .slide-num {
+            position: absolute;
+            top: 30px; right: 40px;
+            font-size: 12px;
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        /* ===== LAYOUTS ===== */
+
+        /* Two Column */
+        .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; text-align: left; width: 100%; }
+        .split-text { display: flex; flex-direction: column; gap: 16px; }
+        .split-visual { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+
+        /* Feature Grid */
+        .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 28px 24px;
+            text-align: left;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .feature-card:hover { transform: translateY(-2px); border-color: rgba(108,99,255,0.3); }
+        .feature-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            margin-bottom: 14px;
+        }
+        .feature-card h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+        .feature-card p { font-size: 13px; line-height: 1.5; }
+
+        /* Metric Cards */
+        .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; }
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px;
+            padding: 24px 16px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: clamp(28px, 4vw, 44px);
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .metric-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .data-table th {
+            background: var(--bg-card-alt);
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--accent);
+            border-bottom: 2px solid rgba(108,99,255,0.3);
+        }
+        .data-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-muted);
+        }
+        .data-table tr:hover td { background: rgba(108,99,255,0.05); }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .tag-purple { background: rgba(108,99,255,0.15); color: var(--primary-light); }
+        .tag-green { background: rgba(74,222,128,0.15); color: var(--success); }
+        .tag-blue { background: rgba(0,217,255,0.15); color: var(--accent); }
+        .tag-yellow { background: rgba(251,191,36,0.15); color: var(--warning); }
+
+        /* Screenshot Placeholder */
+        .screenshot-placeholder {
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 9/16;
+            background: var(--bg-card);
+            border: 2px dashed rgba(108,99,255,0.3);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+        .screenshot-placeholder .icon { font-size: 40px; opacity: 0.4; }
+        .screenshot-placeholder span { font-size: 13px; }
+
+        .screenshot-wide {
+            width: 100%;
+            max-width: 700px;
+            aspect-ratio: 16/9;
+            background: var(--bg-card);
+            border: 2px dashed rgba(108,99,255,0.3);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+        }
+        .screenshot-wide .icon { font-size: 40px; opacity: 0.4; }
+
+        /* Timeline */
+        .timeline { display: flex; gap: 0; width: 100%; position: relative; }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 24px; left: 0; right: 0;
+            height: 3px;
+            background: var(--bg-card-alt);
+        }
+        .timeline-item {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            padding-top: 48px;
+        }
+        .timeline-dot {
+            position: absolute;
+            top: 16px; left: 50%;
+            transform: translateX(-50%);
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            background: var(--bg-dark);
+        }
+        .timeline-dot.active { background: var(--primary); }
+        .timeline-item h3 { font-size: 14px; margin-bottom: 4px; }
+        .timeline-item p { font-size: 12px; }
+
+        /* Architecture boxes */
+        .arch-flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; width: 100%; }
+        .arch-box {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            text-align: center;
+            min-width: 100px;
+        }
+        .arch-box h3 { font-size: 13px; color: var(--accent); margin-bottom: 4px; }
+        .arch-box p { font-size: 11px; }
+        .arch-arrow { font-size: 24px; color: var(--text-muted); }
+
+        /* Bullet list */
+        .bullet-list { list-style: none; text-align: left; width: 100%; }
+        .bullet-list li {
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            font-size: clamp(13px, 1.6vw, 17px);
+        }
+        .bullet-list li::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 16px;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        /* Chart container */
+        .chart-box {
+            width: 100%;
+            max-width: 600px;
+            height: clamp(200px, 35vh, 320px);
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        /* Code block */
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 20px 24px;
+            text-align: left;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text-muted);
+            width: 100%;
+            max-width: 700px;
+            overflow-x: auto;
+        }
+        .code-block .kw { color: var(--primary-light); }
+        .code-block .str { color: var(--success); }
+        .code-block .cmt { color: #555577; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .slide { padding: 32px 24px; }
+            .split { grid-template-columns: 1fr; gap: 24px; }
+            .feature-grid { grid-template-columns: repeat(2, 1fr); }
+            .metrics-row { grid-template-columns: repeat(2, 1fr); }
+            .timeline { flex-direction: column; gap: 16px; }
+            .timeline::before { display: none; }
+            .timeline-item { padding-top: 0; padding-left: 32px; text-align: left; }
+            .timeline-dot { left: 0; top: 4px; transform: none; }
+        }
+
+        /* Animations */
+        .fade-up { animation: fadeUp 0.6s ease-out forwards; opacity: 0; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stagger > * { opacity: 0; animation: fadeUp 0.5s ease-out forwards; }
+        .stagger > *:nth-child(1) { animation-delay: 0.1s; }
+        .stagger > *:nth-child(2) { animation-delay: 0.2s; }
+        .stagger > *:nth-child(3) { animation-delay: 0.3s; }
+        .stagger > *:nth-child(4) { animation-delay: 0.4s; }
+        .stagger > *:nth-child(5) { animation-delay: 0.5s; }
+        .stagger > *:nth-child(6) { animation-delay: 0.6s; }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="slide-deck">
+
+        <!-- ============ SLIDE 1: TITLE ============ -->
+        <div class="slide active">
+            <span class="slide-num">01 / 20</span>
+            <div class="slide-content">
+                <div style="font-size: 48px; margin-bottom: 8px;">🚗</div>
+                <h1 class="gradient-text">Yaatra</h1>
+                <h3 style="color: var(--text-muted); font-weight: 400;">Unified Shared Mobility Platform</h3>
+                <p style="margin-top: 12px;">A full-stack ride-sharing & carpooling application</p>
+                <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                    <span class="tag tag-purple">NestJS</span>
+                    <span class="tag tag-blue">Next.js</span>
+                    <span class="tag tag-green">Flutter</span>
+                    <span class="tag tag-yellow">PostgreSQL + PostGIS</span>
+                </div>
+                <p style="margin-top: 32px; font-size: 14px; color: var(--text-muted);">
+                    Course Project — Software Engineering / Full-Stack Development<br>
+                    2026
+                </p>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 2: INTRODUCTION ============ -->
+        <div class="slide">
+            <span class="slide-num">02 / 20</span>
+            <div class="slide-content">
+                <h2>What is <span class="gradient-text">Yaatra</span>?</h2>
+                <p style="max-width: 800px; margin-top: 8px;">
+                    Yaatra is a unified shared-mobility platform that connects riders with nearby drivers —
+                    whether they're carpool owners sharing their daily commute or professional drivers
+                    offering pooled rides.
+                </p>
+                <div class="feature-grid stagger" style="margin-top: 24px;">
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(108,99,255,0.15);">🕐</div>
+                        <h3>Ride Now</h3>
+                        <p>On-demand shared rides matched in real-time via corridor-based algorithm</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(0,217,255,0.15);">📅</div>
+                        <h3>Plan Commute</h3>
+                        <p>Scheduled recurring carpooling with fixed co-riders and predictable pricing</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(74,222,128,0.15);">🤝</div>
+                        <h3>Community Trust</h3>
+                        <p>KYC verification, ratings, emergency features, and women-only modes</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 3: PROBLEM STATEMENT ============ -->
+        <div class="slide">
+            <span class="slide-num">03 / 20</span>
+            <div class="slide-content">
+                <h2>The <span class="gradient-text-warm">Problem</span></h2>
+                <p style="max-width: 750px;">Urban Indian commuters face a painful trade-off every day</p>
+                <div class="split" style="margin-top: 24px;">
+                    <div class="split-text stagger">
+                        <div class="feature-card" style="border-left: 3px solid var(--danger);">
+                            <h3 style="color: var(--danger);">💰 Ride-Hailing is Expensive</h3>
+                            <p>₹300–500/day for solo cab rides makes daily commuting unaffordable for students and professionals</p>
+                        </div>
+                        <div class="feature-card" style="border-left: 3px solid var(--warning);">
+                            <h3 style="color: var(--warning);">😤 Existing Carpool Apps are Unreliable</h3>
+                            <p>No real-time matching, messy WhatsApp groups, no verification or safety features</p>
+                        </div>
+                        <div class="feature-card" style="border-left: 3px solid var(--primary);">
+                            <h3 style="color: var(--primary-light);">🪑 Empty Seats Going to Waste</h3>
+                            <p>Millions of car owners drive alone daily with 3–4 empty seats — no platform to monetize them</p>
+                        </div>
+                    </div>
+                    <div class="split-visual">
+                        <div class="chart-box">
+                            <canvas id="problemChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 4: OBJECTIVES ============ -->
+        <div class="slide">
+            <span class="slide-num">04 / 20</span>
+            <div class="slide-content">
+                <h2>Project <span class="gradient-text">Objectives</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div class="split-text stagger">
+                        <div class="feature-card">
+                            <h3>🎯 Core Goal</h3>
+                            <p>Build a full-stack mobility platform with real-time ride matching, scheduled carpooling, and integrated payments</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>🏗️ Architecture</h3>
+                            <p>Microservices-ready NestJS backend, Next.js web client, Flutter mobile app — all sharing a PostgreSQL + PostGIS database</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>🧠 Algorithm</h3>
+                            <p>Corridor-based matching using PostGIS spatial queries with detour-time scoring and preference filters</p>
+                        </div>
+                    </div>
+                    <div class="split-text stagger">
+                        <div class="feature-card">
+                            <h3>🔒 Safety First</h3>
+                            <p>Aadhaar KYC, emergency SOS, trip sharing, masked calls, and women-only ride modes</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>💳 Payments</h3>
+                            <p>UPI, cards, wallet integration via Razorpay with automatic commission deduction and driver payouts</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>📡 Real-Time</h3>
+                            <p>WebSocket-based live tracking, instant ride assignments, and push notifications via FCM</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 5: LITERATURE REVIEW ============ -->
+        <div class="slide">
+            <span class="slide-num">05 / 20</span>
+            <div class="slide-content">
+                <h2>Existing <span class="gradient-text">Solutions</span></h2>
+                <p>How current platforms fall short</p>
+                <div style="width: 100%; margin-top: 20px; overflow-x: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Platform</th>
+                                <th>Type</th>
+                                <th>Carpool</th>
+                                <th>Real-Time</th>
+                                <th>Safety</th>
+                                <th>Limitation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Uber/Ola</strong></td>
+                                <td>Cab hailing</td>
+                                <td>❌</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>Expensive, no carpool focus</td>
+                            </tr>
+                            <tr>
+                                <td><strong>BlaBlaCar</strong></td>
+                                <td>Inter-city</td>
+                                <td>✅</td>
+                                <td>❌</td>
+                                <td>⚠️</td>
+                                <td>No real-time, long-distance only</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Quick Ride</strong></td>
+                                <td>Carpool</td>
+                                <td>✅</td>
+                                <td>⚠️</td>
+                                <td>⚠️</td>
+                                <td>Limited cities, poor UX</td>
+                            </tr>
+                            <tr>
+                                <td><strong>WhatsApp Groups</strong></td>
+                                <td>Informal</td>
+                                <td>⚠️</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                                <td>No verification, no payments</td>
+                            </tr>
+                            <tr style="background: rgba(108,99,255,0.08);">
+                                <td><strong style="color: var(--accent);">Yaatra</strong></td>
+                                <td>Unified</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>— (Our solution)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 6: PROPOSED SOLUTION ============ -->
+        <div class="slide">
+            <span class="slide-num">06 / 20</span>
+            <div class="slide-content">
+                <h2>Proposed <span class="gradient-text">Solution</span></h2>
+                <p style="max-width: 700px;">A single platform combining instant shared rides and planned daily carpooling</p>
+                <div class="feature-grid stagger" style="margin-top: 24px;">
+                    <div class="feature-card" style="border-top: 3px solid var(--primary);">
+                        <h3>👥 Dual Supply</h3>
+                        <p>Both carpool owners and professional drivers on one platform — more availability, lower prices</p>
+                    </div>
+                    <div class="feature-card" style="border-top: 3px solid var(--accent);">
+                        <h3>🔄 Two Modes</h3>
+                        <p>Ride Now (on-demand) + Plan Commute (recurring schedule) — covers all commuter needs</p>
+                    </div>
+                    <div class="feature-card" style="border-top: 3px solid var(--success);">
+                        <h3>🗺️ Spatial Matching</h3>
+                        <p>PostGIS-powered corridor matching with detour-time scoring for optimal ride pairing</p>
+                    </div>
+                    <div class="feature-card" style="border-top: 3px solid var(--warning);">
+                        <h3>💸 Smart Pricing</h3>
+                        <p>Carpool = cost-sharing (₹8/km). Professional = dynamic fare with capped surge (≤1.5x)</p>
+                    </div>
+                    <div class="feature-card" style="border-top: 3px solid var(--danger);">
+                        <h3>🛡️ Trust Layer</h3>
+                        <p>Aadhaar KYC, verified badges, ratings, emergency SOS, and women-only rides</p>
+                    </div>
+                    <div class="feature-card" style="border-top: 3px solid var(--primary-light);">
+                        <h3>📱 Multi-Platform</h3>
+                        <p>Web (Next.js), Mobile (Flutter), Admin Dashboard — all from a single NestJS API</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 7: SYSTEM ARCHITECTURE ============ -->
+        <div class="slide">
+            <span class="slide-num">07 / 20</span>
+            <div class="slide-content">
+                <h2>System <span class="gradient-text">Architecture</span></h2>
+                <div class="arch-flow stagger" style="margin-top: 24px;">
+                    <div class="arch-box" style="border-color: var(--accent);">
+                        <h3>📱 Mobile App</h3>
+                        <p>Flutter<br>Dart</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--primary);">
+                        <h3>🌐 Web Client</h3>
+                        <p>Next.js 16<br>React 19</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--success); min-width: 140px;">
+                        <h3>⚡ API Gateway</h3>
+                        <p>NestJS 11<br>JWT Auth + RBAC</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--warning);">
+                        <h3>🗄️ Database</h3>
+                        <p>PostgreSQL<br>+ PostGIS</p>
+                    </div>
+                </div>
+                <div class="arch-flow stagger" style="margin-top: 16px;">
+                    <div class="arch-box">
+                        <h3>🔴 Redis</h3>
+                        <p>Cache, OTP<br>Driver Pool</p>
+                    </div>
+                    <div class="arch-box">
+                        <h3>📡 Socket.IO</h3>
+                        <p>Live Tracking<br>WS Events</p>
+                    </div>
+                    <div class="arch-box">
+                        <h3>☁️ MinIO / S3</h3>
+                        <p>Doc Storage<br>KYC Files</p>
+                    </div>
+                    <div class="arch-box">
+                        <h3>💳 Razorpay</h3>
+                        <p>UPI, Cards<br>Driver Payouts</p>
+                    </div>
+                    <div class="arch-box">
+                        <h3>🔔 FCM</h3>
+                        <p>Push<br>Notifications</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 8: TECH STACK ============ -->
+        <div class="slide">
+            <span class="slide-num">08 / 20</span>
+            <div class="slide-content">
+                <h2>Technology <span class="gradient-text">Stack</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 12px;">Backend</h3>
+                        <div class="stagger">
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>NestJS 11</strong> — TypeScript framework with modules, guards, interceptors</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>Prisma 7</strong> — Type-safe ORM with PostgreSQL adapter</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>PostGIS</strong> — Spatial queries for route matching (LINESTRING, ST_DWithin)</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>Socket.IO</strong> — WebSocket gateway for real-time events</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px;">
+                                <p><strong>Redis</strong> — OTP storage, online driver pool, rate limiting</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--primary-light); margin-bottom: 12px;">Frontend</h3>
+                        <div class="stagger">
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>Next.js 16</strong> — App Router, React 19, Tailwind CSS 4</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>Zustand</strong> — Lightweight state management with persistence</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>TanStack Query</strong> — Server state, caching, optimistic updates</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                                <p><strong>React Hook Form + Zod</strong> — Form validation and schema parsing</p>
+                            </div>
+                            <div class="feature-card" style="padding: 14px 18px;">
+                                <p><strong>Flutter</strong> — Cross-platform mobile (Android 8+ / iOS 13+)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 9: DATABASE DESIGN ============ -->
+        <div class="slide">
+            <span class="slide-num">09 / 20</span>
+            <div class="slide-content">
+                <h2>Database <span class="gradient-text">Design</span></h2>
+                <p>PostgreSQL with PostGIS extension — 17 relational models</p>
+                <div class="split" style="margin-top: 20px;">
+                    <div>
+                        <div class="screenshot-wide" style="max-width: 100%; aspect-ratio: auto; min-height: 300px;">
+                            <div class="icon">🗺️</div>
+                            <span>ER Diagram — prisma/schema.prisma</span>
+                            <span style="font-size: 11px; color: var(--text-muted);">Insert database schema diagram here</span>
+                        </div>
+                    </div>
+                    <div class="split-text">
+                        <h3 style="font-size: 16px; margin-bottom: 8px;">Key Models</h3>
+                        <div class="stagger">
+                            <div class="feature-card" style="padding: 10px 14px; margin-bottom: 6px;">
+                                <p><strong>User</strong> — role (RIDER/DRIVER/BOTH/ADMIN), KYC, contacts</p>
+                            </div>
+                            <div class="feature-card" style="padding: 10px 14px; margin-bottom: 6px;">
+                                <p><strong>DriverProfile</strong> — type, online status, zone, badges</p>
+                            </div>
+                            <div class="feature-card" style="padding: 10px 14px; margin-bottom: 6px;">
+                                <p><strong>RecurringRide</strong> — PostGIS LINESTRING route, schedule JSON</p>
+                            </div>
+                            <div class="feature-card" style="padding: 10px 14px; margin-bottom: 6px;">
+                                <p><strong>Trip</strong> — on-demand with TripStatus lifecycle</p>
+                            </div>
+                            <div class="feature-card" style="padding: 10px 14px; margin-bottom: 6px;">
+                                <p><strong>Booking</strong> — scheduled ride reservations</p>
+                            </div>
+                            <div class="feature-card" style="padding: 10px 14px;">
+                                <p><strong>Payment / Wallet / Rating</strong> — financial + trust layer</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 10: RIDER FEATURES ============ -->
+        <div class="slide">
+            <span class="slide-num">10 / 20</span>
+            <div class="slide-content">
+                <h2>Rider <span class="gradient-text">Features</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div class="split-text stagger">
+                        <h3 style="color: var(--accent); font-size: 18px;">Ride Now (On-Demand)</h3>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <p>📍 Enter destination → View available rides (carpool + professional) → Filter by type, price, women-only → Confirm booking → Live tracking → Auto-payment</p>
+                        </div>
+                        <h3 style="color: var(--primary-light); font-size: 18px; margin-top: 12px;">Plan Commute (Recurring)</h3>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <p>📅 Set home/work + schedule (Mon-Fri 9 AM) → View matched carpools → Subscribe → Calendar sync → Reminders → Automatic booking per instance</p>
+                        </div>
+                    </div>
+                    <div class="split-visual">
+                        <div class="screenshot-placeholder">
+                            <div class="icon">📱</div>
+                            <span>Ride Now — Options Screen</span>
+                            <span style="font-size: 11px;">Insert screenshot here</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 11: DRIVER FEATURES ============ -->
+        <div class="slide">
+            <span class="slide-num">11 / 20</span>
+            <div class="slide-content">
+                <h2>Driver <span class="gradient-text">Features</span></h2>
+                <div class="feature-grid stagger" style="margin-top: 20px;">
+                    <div class="feature-card" style="border-left: 3px solid var(--primary);">
+                        <h3>🚗 Carpool Driver</h3>
+                        <p>Set home/work addresses, departure time, days of week, available seats (max 3), price per seat, women-only preference. Publish ride and manage incoming rider requests.</p>
+                    </div>
+                    <div class="feature-card" style="border-left: 3px solid var(--accent);">
+                        <h3>📶 Go Online</h3>
+                        <p>Professional drivers toggle online status to receive pooled ride requests along their current corridor. Real-time location pushed to Redis driver pool for matching.</p>
+                    </div>
+                    <div class="feature-card" style="border-left: 3px solid var(--success);">
+                        <h3>💰 Earnings Dashboard</h3>
+                        <p>Daily earnings summary, pending settlements, wallet balance, withdrawal to bank. Commission auto-deducted (10–15% carpool, 20–25% professional).</p>
+                    </div>
+                    <div class="feature-card" style="border-left: 3px solid var(--warning);">
+                        <h3>📋 Request Management</h3>
+                        <p>View incoming rider requests for scheduled rides. Accept/reject with reason. For pro drivers: pooled queue with ≤2 pickups per trip.</p>
+                    </div>
+                    <div class="feature-card" style="border-left: 3px solid var(--danger);">
+                        <h3>🚗 Vehicle Management</h3>
+                        <p>Add multiple vehicles with make, model, color, license plate, capacity. Upload fitness certificate and commercial permit for verification.</p>
+                    </div>
+                    <div class="feature-card" style="border-left: 3px solid var(--primary-light);">
+                        <h3>📊 Ride History</h3>
+                        <p>Complete trip log with fare breakdown, rider ratings, and route replay. Export for tax purposes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 12: MATCHING ALGORITHM ============ -->
+        <div class="slide">
+            <span class="slide-num">12 / 20</span>
+            <div class="slide-content">
+                <h2>Matching <span class="gradient-text">Algorithm</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div class="split-text">
+                        <h3 style="color: var(--accent); font-size: 16px;">On-Demand Matching</h3>
+                        <div class="code-block">
+<span class="cmt">// Corridor-based matching with PostGIS</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> driver_pool
+<span class="kw">WHERE</span> ST_DWithin(
+    driver_corridor,
+    ST_MakeLine(pickup, dropoff),
+    <span class="str">5000</span>  <span class="cmt">-- 5km max detour</span>
+)
+<span class="kw">AND</span> is_online = <span class="str">true</span>
+<span class="kw">ORDER BY</span> detour_time ASC, rating <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="str">10</span>;
+                        </div>
+                        <p style="margin-top: 12px; font-size: 13px;">
+                            <strong>Target:</strong> &lt; 2s response time using Redis-cached driver locations
+                        </p>
+                    </div>
+                    <div class="split-text">
+                        <h3 style="color: var(--primary-light); font-size: 16px;">Scheduled Matching</h3>
+                        <div class="code-block">
+<span class="cmt">// Route overlap for recurring rides</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> recurring_rides
+<span class="kw">WHERE</span> ST_DWithin(
+    route,  <span class="cmt">-- PostGIS LINESTRING</span>
+    ST_MakePoint(pickup_lng, pickup_lat),
+    <span class="str">3000</span>  <span class="cmt">-- 3km radius</span>
+)
+<span class="kw">AND</span> schedule->>'days' <span class="kw">CONTAINS</span> <span class="str">'MONDAY'</span>
+<span class="kw">AND</span> departure_time <span class="kw">BETWEEN</span> <span class="str">'08:00'</span> <span class="kw">AND</span> <span class="str">'09:30'</span>;
+                        </div>
+                        <p style="margin-top: 12px; font-size: 13px;">
+                            <strong>Scoring:</strong> proximity + rating + women-only preference + seat availability
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 13: SAFETY & TRUST ============ -->
+        <div class="slide">
+            <span class="slide-num">13 / 20</span>
+            <div class="slide-content">
+                <h2>Safety & <span class="gradient-text-warm">Trust</span></h2>
+                <div class="feature-grid stagger" style="margin-top: 20px;">
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(248,113,113,0.15);">🚨</div>
+                        <h3>Emergency SOS</h3>
+                        <p>One-tap emergency button triggers alerts to emergency contacts via SMS + push notification. Records audio/video. Alerts Yaatra safety team.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(108,99,255,0.15);">🪪</div>
+                        <h3>Aadhaar KYC</h3>
+                        <p>Document upload (Aadhaar, DL, PAN) via MinIO S3. Manual review queue for admins. Verification badges on profiles.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(0,217,255,0.15);">📍</div>
+                        <h3>Trip Sharing</h3>
+                        <p>Share live trip status with trusted contacts via masked link. Real-time location updates every 30 seconds.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(74,222,128,0.15);">👩</div>
+                        <h3>Women-Only Mode</h3>
+                        <p>Female riders can filter for women-only carpool rides. Driver and all co-riders must be verified female.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(251,191,36,0.15);">⭐</div>
+                        <h3>Ratings & Reviews</h3>
+                        <p>Post-ride rating (1–5) with tags (punctual, safe, comfortable). Aggregate score on driver profiles. Report safety issues.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon" style="background: rgba(108,99,255,0.15);">🔒</div>
+                        <h3>Data Security</h3>
+                        <p>TLS 1.2+ encryption, phone number masking, OTP rate limiting, PCI DSS compliance via Razorpay tokenization.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 14: API DESIGN ============ -->
+        <div class="slide">
+            <span class="slide-num">14 / 20</span>
+            <div class="slide-content">
+                <h2>API <span class="gradient-text">Design</span></h2>
+                <p>RESTful + WebSocket — 50+ endpoints with Swagger documentation</p>
+                <div class="split" style="margin-top: 20px;">
+                    <div>
+                        <div class="code-block" style="font-size: 12px;">
+<span class="cmt">// Auth (OTP-based)</span>
+<span class="kw">POST</span> /auth/otp          <span class="cmt">→ Send OTP</span>
+<span class="kw">POST</span> /auth/verify       <span class="cmt">→ Verify → JWT</span>
+
+<span class="cmt">// Rides</span>
+<span class="kw">GET</span>  /rides/available    <span class="cmt">→ Search rides</span>
+<span class="kw">POST</span> /rides/book         <span class="cmt">→ Book ride</span>
+<span class="kw">POST</span> /rides/:id/cancel   <span class="cmt">→ Cancel + penalty</span>
+
+<span class="cmt">// Driver</span>
+<span class="kw">POST</span> /driver/offer       <span class="cmt">→ Publish commute</span>
+<span class="kw">POST</span> /driver/go-online   <span class="cmt">→ Join Redis pool</span>
+<span class="kw">POST</span> /driver/accept      <span class="cmt">→ Accept request</span>
+
+<span class="cmt">// Payments</span>
+<span class="kw">POST</span> /payments/charge    <span class="cmt">→ Razorpay AUTH</span>
+<span class="kw">POST</span> /payments/payout    <span class="cmt">→ Driver payout</span>
+
+<span class="cmt">// WebSocket Events</span>
+ride.match · trip.assigned · trip.location
+trip.completed · notification.new
+                        </div>
+                    </div>
+                    <div class="split-text stagger">
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3>🔐 Authentication</h3>
+                            <p>JWT tokens with phone + role in payload. OTP via Twilio/msg91 with Redis TTL + rate limiting.</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3>🛡️ Authorization</h3>
+                            <p>Role-based guards: @Roles('ADMIN'), @Roles('DRIVER'). Custom decorators: @CurrentUser().</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3>📐 Validation</h3>
+                            <p>class-validator DTOs with whitelist + transform. Swagger auto-documentation at /api/docs.</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3>📡 Real-Time</h3>
+                            <p>Socket.IO gateway with JWT handshake. Room-based: user:{id} and trip:{id} rooms.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 15: REAL-TIME ARCHITECTURE ============ -->
+        <div class="slide">
+            <span class="slide-num">15 / 20</span>
+            <div class="slide-content">
+                <h2>Real-Time <span class="gradient-text">Architecture</span></h2>
+                <div class="arch-flow stagger" style="margin-top: 24px;">
+                    <div class="arch-box" style="border-color: var(--danger); min-width: 130px;">
+                        <h3>📍 Driver App</h3>
+                        <p>location:update<br>every 30s</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--primary); min-width: 130px;">
+                        <h3>📡 LocationGateway</h3>
+                        <p>Socket.IO<br>JWT Auth</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--warning); min-width: 130px;">
+                        <h3>💾 TripLocation</h3>
+                        <p>Append-only<br>history</p>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-box" style="border-color: var(--success); min-width: 130px;">
+                        <h3>📱 Rider App</h3>
+                        <p>trip.location<br>live map</p>
+                    </div>
+                </div>
+                <div style="width: 100%; margin-top: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 12px;">WebSocket Event Flow</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3 style="color: var(--accent); font-size: 14px;">Server → Client</h3>
+                            <p style="font-size: 12px;">ride.match · trip.assigned · trip.arriving · trip.started · trip.location · trip.completed · trip.cancelled · notification.new · booking.confirmed · driver.online</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <h3 style="color: var(--primary-light); font-size: 14px;">Client → Server</h3>
+                            <p style="font-size: 12px;">join:user · join:trip · location:update · location:subscribe</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 16: SCREENSHOTS ============ -->
+        <div class="slide">
+            <span class="slide-num">16 / 20</span>
+            <div class="slide-content">
+                <h2>UI <span class="gradient-text">Screenshots</span></h2>
+                <p>Dark-themed responsive interface across web and mobile</p>
+                <div style="display: flex; gap: 24px; margin-top: 20px; align-items: flex-end; flex-wrap: wrap; justify-content: center;">
+                    <div class="screenshot-placeholder" style="aspect-ratio: 9/16; max-width: 180px; min-height: 280px;">
+                        <div class="icon">📱</div>
+                        <span>Home Screen</span>
+                    </div>
+                    <div class="screenshot-placeholder" style="aspect-ratio: 9/16; max-width: 180px; min-height: 280px;">
+                        <div class="icon">🗺️</div>
+                        <span>Ride Options</span>
+                    </div>
+                    <div class="screenshot-placeholder" style="aspect-ratio: 9/16; max-width: 180px; min-height: 280px;">
+                        <div class="icon">🚗</div>
+                        <span>Live Tracking</span>
+                    </div>
+                    <div class="screenshot-placeholder" style="aspect-ratio: 9/16; max-width: 180px; min-height: 280px;">
+                        <div class="icon">👤</div>
+                        <span>Driver Profile</span>
+                    </div>
+                    <div class="screenshot-placeholder" style="aspect-ratio: 9/16; max-width: 180px; min-height: 280px;">
+                        <div class="icon">💰</div>
+                        <span>Wallet</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 17: TESTING ============ -->
+        <div class="slide">
+            <span class="slide-num">17 / 20</span>
+            <div class="slide-content">
+                <h2>Testing <span class="gradient-text">Strategy</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div class="split-text stagger">
+                        <div class="feature-card" style="border-left: 3px solid var(--success);">
+                            <h3>✅ Unit Tests</h3>
+                            <p>Service-level tests with mocked Prisma client. Coverage for matching, pricing, auth, and wallet services.</p>
+                        </div>
+                        <div class="feature-card" style="border-left: 3px solid var(--accent);">
+                            <h3>🔗 Integration Tests</h3>
+                            <p>Supertest against test database. Auth flow, ride book/cancel, payment webhook, admin doc approval.</p>
+                        </div>
+                        <div class="feature-card" style="border-left: 3px solid var(--primary);">
+                            <h3>🌐 E2E Tests</h3>
+                            <p>Full user journey: Login → Search → Book → Track → Complete → Pay → Rate.</p>
+                        </div>
+                        <div class="feature-card" style="border-left: 3px solid var(--warning);">
+                            <h3>📱 Mobile Tests</h3>
+                            <p>Flutter analyze + flutter test. Device testing on Android 8+ / iOS 13+.</p>
+                        </div>
+                    </div>
+                    <div class="split-text stagger">
+                        <h3 style="font-size: 16px; margin-bottom: 8px;">Quality Gates</h3>
+                        <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                            <p><span class="tag tag-green">Backend</span> npm run lint clean, npm run test passing, Swagger-tested endpoints</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                            <p><span class="tag tag-blue">Web</span> npm run lint + build clean, responsive + accessible pages</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px; margin-bottom: 8px;">
+                            <p><span class="tag tag-purple">Mobile</span> flutter analyze clean, flutter test passing</p>
+                        </div>
+                        <div class="feature-card" style="padding: 14px 18px;">
+                            <p><span class="tag tag-yellow">Coverage</span> Target: 70%+ unit test coverage on core services</p>
+                        </div>
+                        <div class="chart-box" style="max-width: 100%; margin-top: 12px;">
+                            <canvas id="testChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 18: CHALLENGES ============ -->
+        <div class="slide">
+            <span class="slide-num">18 / 20</span>
+            <div class="slide-content">
+                <h2>Challenges & <span class="gradient-text-warm">Solutions</span></h2>
+                <div style="width: 100%; margin-top: 20px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">Challenge</th>
+                                <th style="width: 35%;">Solution</th>
+                                <th style="width: 30%;">Technology</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Real-time driver location updates for 1000+ drivers</td>
+                                <td>Redis-cached driver pool with zone-based indexing</td>
+                                <td><span class="tag tag-red" style="background: rgba(248,113,113,0.15); color: var(--danger);">Redis + Socket.IO</span></td>
+                            </tr>
+                            <tr>
+                                <td>Efficient route-based matching across city-wide data</td>
+                                <td>PostGIS spatial indexing with ST_DWithin for corridor queries</td>
+                                <td><span class="tag tag-green">PostGIS</span></td>
+                            </tr>
+                            <tr>
+                                <td>Handling payment failures and retries gracefully</td>
+                                <td>Retry queue with BullMQ, wallet fallback, dispute resolution flow</td>
+                                <td><span class="tag tag-purple">Razorpay + BullMQ</span></td>
+                            </tr>
+                            <tr>
+                                <td>Type safety across frontend-backend contract</td>
+                                <td>Shared Zod schemas, Prisma generated types, class-validator DTOs</td>
+                                <td><span class="tag tag-blue">TypeScript + Zod</span></td>
+                            </tr>
+                            <tr>
+                                <td>Offline support for viewing upcoming rides</td>
+                                <td>Zustand persist + service worker caching for scheduled rides</td>
+                                <td><span class="tag tag-yellow">PWA + Zustand</span></td>
+                            </tr>
+                            <tr>
+                                <td>PostGIS geography type not supported by Prisma directly</td>
+                                <td>Raw SQL via $executeRawUnsafe for route insertions, Prisma for all other queries</td>
+                                <td><span class="tag tag-green">Prisma + Raw SQL</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 19: FUTURE SCOPE ============ -->
+        <div class="slide">
+            <span class="slide-num">19 / 20</span>
+            <div class="slide-content">
+                <h2>Future <span class="gradient-text">Scope</span></h2>
+                <div class="split" style="margin-top: 20px;">
+                    <div>
+                        <h3 style="color: var(--accent); font-size: 16px; margin-bottom: 12px;">Phase 2 — Enhanced (3–6 months)</h3>
+                        <div class="stagger">
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🔄 Professional driver pooled on-demand rides (multi-passenger corridor matching)</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🧠 Improved matching algorithm with ML-based detour prediction</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>💳 Wallet + automated driver daily payouts</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🏙️ Expand to 3 more cities (Delhi, Mumbai, Hyderabad)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--primary-light); font-size: 16px; margin-bottom: 12px;">Phase 3 — Scale (6–12 months)</h3>
+                        <div class="stagger">
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>👩 Women-only mode with verified female-only co-riders</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🏢 Corporate tie-ups for employee transport management</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🗺️ Advanced route optimization with multiple pickups/dropoffs</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                                <p>🌐 Multi-language support (Hindi + English) + referral program</p>
+                            </div>
+                            <div class="feature-card" style="padding: 12px 16px;">
+                                <p>📊 Analytics dashboard with Mixpanel/Amplitude + Crashlytics</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ SLIDE 20: CONCLUSION ============ -->
+        <div class="slide">
+            <span class="slide-num">20 / 20</span>
+            <div class="slide-content">
+                <div style="font-size: 48px; margin-bottom: 8px;">🏁</div>
+                <h2 class="gradient-text">Conclusion</h2>
+                <p style="max-width: 700px; margin-top: 8px;">
+                    Yaatra demonstrates how modern full-stack technologies can be combined to solve
+                    real-world urban mobility challenges. The project covers the complete software
+                    engineering lifecycle — from requirements analysis and database design to
+                    real-time systems and deployment.
+                </p>
+                <div class="metrics-row stagger" style="margin-top: 24px;">
+                    <div class="metric-card">
+                        <div class="metric-value">17</div>
+                        <div class="metric-label">Database Models</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">50+</div>
+                        <div class="metric-label">API Endpoints</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">Platforms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">15+</div>
+                        <div class="metric-label">WS Events</div>
+                    </div>
+                </div>
+                <div style="margin-top: 32px;">
+                    <h3 style="color: var(--text-muted); font-weight: 400; font-size: 16px;">
+                        Thank You
+                    </h3>
+                    <p style="font-size: 14px; margin-top: 8px;">
+                        <strong>Yaatra</strong> — Making every journey shared, affordable, and reliable.
+                    </p>
+                    <p style="font-size: 13px; margin-top: 12px; color: var(--text-muted);">
+                        📧 Contact · 🔗 GitHub · 📄 Documentation
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.slide-deck -->
+
+    <!-- Navigation -->
+    <div class="nav-controls">
+        <button class="nav-btn" onclick="prevSlide()">←</button>
+        <span class="slide-counter"><span id="current">1</span> / <span id="total">20</span></span>
+        <button class="nav-btn" onclick="nextSlide()">→</button>
+    </div>
+
+    <script>
+        // ── Navigation ─────────────────────────────────────────
+        let current = 1;
+        const total = document.querySelectorAll('.slide').length;
+        document.getElementById('total').textContent = total;
+
+        function showSlide(n) {
+            if (n < 1) n = 1;
+            if (n > total) n = total;
+            current = n;
+            document.querySelectorAll('.slide').forEach((s, i) => {
+                s.classList.toggle('active', i === n - 1);
+            });
+            document.getElementById('current').textContent = n;
+            document.getElementById('progressBar').style.width = (n / total * 100) + '%';
+        }
+
+        function nextSlide() { showSlide(current + 1); }
+        function prevSlide() { showSlide(current - 1); }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+            if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-controls')) nextSlide();
+        });
+
+        showSlide(1);
+
+        // ── Charts ─────────────────────────────────────────────
+
+        // Slide 3: Daily commute cost breakdown
+        const problemCtx = document.getElementById('problemChart');
+        if (problemCtx) {
+            new Chart(problemCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Solo Cab', 'Auto', 'Bus', 'Carpool\n(Yaatra)'],
+                    datasets: [{
+                        label: 'Monthly Cost (₹)',
+                        data: [9000, 6000, 1500, 3000],
+                        backgroundColor: [
+                            'rgba(248, 113, 113, 0.7)',
+                            'rgba(251, 191, 36, 0.7)',
+                            'rgba(74, 222, 128, 0.7)',
+                            'rgba(108, 99, 255, 0.9)',
+                        ],
+                        borderColor: [
+                            '#F87171',
+                            '#FBBF24',
+                            '#4ADE80',
+                            '#6C63FF',
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Monthly Commute Cost Comparison',
+                            color: '#E8E8F0',
+                            font: { size: 13, weight: '600' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#8888AA', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#8888AA',
+                                font: { size: 11 },
+                                callback: (v) => '₹' + (v/1000) + 'k'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Slide 17: Test coverage chart
+        const testCtx = document.getElementById('testChart');
+        if (testCtx) {
+            new Chart(testCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Auth', 'Rides', 'Matching', 'Payments', 'Wallet', 'Safety', 'Admin'],
+                    datasets: [{
+                        data: [85, 70, 65, 60, 55, 50, 75],
+                        backgroundColor: [
+                            'rgba(108, 99, 255, 0.8)',
+                            'rgba(0, 217, 255, 0.8)',
+                            'rgba(74, 222, 128, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(248, 113, 113, 0.8)',
+                            'rgba(139, 131, 255, 0.8)',
+                            'rgba(0, 217, 255, 0.5)',
+                        ],
+                        borderWidth: 0,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '55%',
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#8888AA',
+                                font: { size: 11 },
+                                padding: 8,
+                                boxWidth: 12,
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Planned Test Coverage by Module (%)',
+                            color: '#E8E8F0',
+                            font: { size: 12, weight: '600' },
+                            padding: { bottom: 8 }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

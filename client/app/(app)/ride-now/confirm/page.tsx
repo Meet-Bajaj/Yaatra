@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, CreditCard, Wallet, Shield, Check } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { useRideSearchStore } from "@/stores/rideSearchStore";
@@ -26,6 +26,7 @@ const paymentMethods = [
 
 export default function RideConfirmPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { pickup, dropoff } = useRideSearchStore();
   const [selectedPayment, setSelectedPayment] = useState("wallet");
 
@@ -61,12 +62,8 @@ export default function RideConfirmPage() {
         paymentMethod: selectedPayment.toUpperCase(),
       }),
     onSuccess: (res) => {
-      const rideId = res.data?.id;
-      if (rideId) {
-        router.push("/active-trip");
-      } else {
-        router.push("/active-trip");
-      }
+      queryClient.invalidateQueries({ queryKey: ["active-trip"] });
+      router.push("/active-trip");
     },
   });
 

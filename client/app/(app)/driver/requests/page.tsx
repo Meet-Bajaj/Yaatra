@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, X, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -16,6 +17,7 @@ interface Request {
 }
 
 export default function DriverRequestsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery({
@@ -32,7 +34,11 @@ export default function DriverRequestsPage() {
 
   const acceptMutation = useMutation({
     mutationFn: (id: string) => api.post(API.driver.acceptRequest(id)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["driver-requests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["driver-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-active-trip"] });
+      router.push("/driver/active");
+    },
   });
 
   const rejectMutation = useMutation({
@@ -80,7 +86,11 @@ export default function DriverRequestsPage() {
                   onClick={() => acceptMutation.mutate(request.id)}
                   disabled={acceptMutation.isPending || rejectMutation.isPending}
                 >
-                  <Check className="h-4 w-4" /> Accept
+                  {acceptMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <><Check className="h-4 w-4" /> Accept</>
+                  )}
                 </Button>
               </div>
             </div>

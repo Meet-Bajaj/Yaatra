@@ -39,7 +39,7 @@ export default function RideNowPage() {
 
   const handleSearch = () => {
     if (!pickupInput || !dropoffInput || !pickup || !dropoff) return;
-    router.push("/ride-now/options");
+    router.push("/ride-now/searching");
   };
 
   const handleUseCurrentLocation = () => {

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { useLocationStore } from "@/stores/locationStore";
+import { useDriverLocation } from "@/hooks/use-driver-location";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LiveTrackingMap } from "@/components/maps/live-tracking-map";
@@ -27,6 +28,9 @@ export default function DriverActivePage() {
   const queryClient = useQueryClient();
   const { driverPosition } = useLocationStore();
   const [tripId, setTripId] = useState<string | null>(null);
+
+  // Start sending location updates when trip is active
+  useDriverLocation(tripId);
 
   const { data: trip, isLoading } = useQuery({
     queryKey: ["driver-active-trip"],

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Share2, AlertTriangle } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Phone, Share2, AlertTriangle, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { useLocationStore } from "@/stores/locationStore";
@@ -11,22 +11,52 @@ import { Button } from "@/components/ui/button";
 import { RatingBar } from "@/components/ui/rating-bar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { LiveTrackingMap } from "@/components/maps/live-tracking-map";
+import { EmptyState } from "@/components/ui/empty-state";
+
+interface ActiveTrip {
+  id: string;
+  status: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffLat?: number;
+  dropoffLng?: number;
+  driverName?: string;
+  driverPhone?: string;
+  vehicleInfo?: string;
+  fare?: number;
+}
 
 export default function ActiveTripPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { driverPosition } = useLocationStore();
-  const [tripStatus, setTripStatus] = useState("arriving");
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
-  const pickup = { lat: 12.9352, lng: 77.6245 };
-  const dropoff = { lat: 12.9716, lng: 77.5946 };
+  const { data: trip, isLoading } = useQuery({
+    queryKey: ["active-trip"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.rides.upcoming);
+        const trips = Array.isArray(res.data) ? res.data : [];
+        const active = trips.find(
+          (t: ActiveTrip) => t.status === "ACTIVE" || t.status === "IN_PROGRESS" || t.status === "DRIVER_ARRIVING"
+        );
+        return active as ActiveTrip | undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    refetchInterval: 5000, // poll every 5s for status changes
+  });
 
   const cancelMutation = useMutation({
     mutationFn: (tripId: string) => api.post(API.rides.cancel(tripId)),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["active-trip"] });
       queryClient.invalidateQueries({ queryKey: ["rides-upcoming"] });
       router.push("/dashboard");
     },
@@ -49,14 +79,47 @@ export default function ActiveTripPage() {
   });
 
   const rateMutation = useMutation({
-    mutationFn: ({ tripId, score, comment }: { tripId: string; score: number; comment?: string }) =>
-      api.post(API.rating.create, { tripId, score, comment }),
+    mutationFn: ({ tripId, score, cmt }: { tripId: string; score: number; cmt?: string }) =>
+      api.post(API.rating.create, { tripId, score, comment: cmt }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["rides-history"] });
       setShowRating(false);
       router.push("/dashboard");
     },
   });
+
+  if (isLoading) {
+    return (
+      <div className="animate-fade-in space-y-4">
+        <h1 className="text-2xl font-bold text-white">Active Trip</h1>
+        <div className="h-48 animate-pulse rounded-2xl bg-white/5" />
+        <div className="h-24 animate-pulse rounded-2xl bg-white/5" />
+      </div>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <div className="animate-fade-in space-y-4">
+        <h1 className="text-2xl font-bold text-white">Active Trip</h1>
+        <EmptyState title="No active trip" description="You don't have an active trip right now" />
+      </div>
+    );
+  }
+
+  const pickup = trip.pickupLat && trip.pickupLng
+    ? { lat: trip.pickupLat, lng: trip.pickupLng }
+    : undefined;
+  const dropoff = trip.dropoffLat && trip.dropoffLng
+    ? { lat: trip.dropoffLat, lng: trip.dropoffLng }
+    : undefined;
+
+  const statusLabel =
+    trip.status === "DRIVER_ARRIVING"
+      ? "Driver is arriving"
+      : trip.status === "IN_PROGRESS"
+        ? "Trip in progress"
+        : "Waiting for driver";
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -69,54 +132,64 @@ export default function ActiveTripPage() {
           className="md:h-[256px]"
         />
         <div className="absolute bottom-3 left-3 z-10 rounded-lg bg-black/80 px-3 py-1.5 backdrop-blur-sm">
-          <p className="text-xs font-medium text-white">{tripStatus === "arriving" ? "Driver is arriving" : "Trip in progress"}</p>
-          <p className="text-[10px] text-white/50">ETA: {tripStatus === "arriving" ? "3 min" : "18 min"}</p>
+          <p className="text-xs font-medium text-white">{statusLabel}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
-            A
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white">Arjun K.</p>
-            <p className="text-xs text-white/50 truncate">Swift Dzire - White - KA 01 AB 1234</p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target">
-              <Phone className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => shareTripMutation.mutate("trip-1")}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target"
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+      {trip.driverName && (
+        <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
+              {trip.driverName?.[0] || "D"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">{trip.driverName}</p>
+              {trip.vehicleInfo && (
+                <p className="text-xs text-white/50 truncate">{trip.vehicleInfo}</p>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target">
+                <Phone className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => shareTripMutation.mutate(trip.id)}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm text-white/60">
-          <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-          <span>Koramangala 4th Block</span>
-        </div>
-        <div className="ml-1 h-4 w-px bg-white/10" />
-        <div className="flex items-center gap-2 text-sm text-white/60">
-          <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-          <span>Electronic City Phase 1</span>
-        </div>
+        {trip.pickupAddress && (
+          <div className="flex items-center gap-2 text-sm text-white/60">
+            <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+            <span>{trip.pickupAddress}</span>
+          </div>
+        )}
+        {trip.pickupAddress && trip.dropoffAddress && <div className="ml-1 h-4 w-px bg-white/10" />}
+        {trip.dropoffAddress && (
+          <div className="flex items-center gap-2 text-sm text-white/60">
+            <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+            <span>{trip.dropoffAddress}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1 border-red-500/30 text-red-400"
-          onClick={() => cancelMutation.mutate("trip-1")}
-        >
-          Cancel
-        </Button>
+        {trip.status !== "COMPLETED" && trip.status !== "CANCELLED" && (
+          <Button
+            variant="outline"
+            className="flex-1 border-red-500/30 text-red-400"
+            onClick={() => cancelMutation.mutate(trip.id)}
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel"}
+          </Button>
+        )}
         <Button
           className="flex-1"
           onClick={() => {
@@ -127,6 +200,12 @@ export default function ActiveTripPage() {
           <AlertTriangle className="h-4 w-4" /> SOS
         </Button>
       </div>
+
+      {trip.status === "COMPLETED" && (
+        <Button className="w-full" size="lg" onClick={() => setShowRating(true)}>
+          Rate Trip
+        </Button>
+      )}
 
       <BottomSheet open={showRating} onClose={() => setShowRating(false)} title="Rate your trip">
         <div className="space-y-4">
@@ -140,10 +219,10 @@ export default function ActiveTripPage() {
           <Button
             className="w-full"
             size="lg"
-            onClick={() => rateMutation.mutate({ tripId: "trip-1", score: rating, comment })}
+            onClick={() => rateMutation.mutate({ tripId: trip.id, score: rating, cmt: comment })}
             disabled={rating === 0 || rateMutation.isPending}
           >
-            Submit Rating
+            {rateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Rating"}
           </Button>
         </div>
       </BottomSheet>

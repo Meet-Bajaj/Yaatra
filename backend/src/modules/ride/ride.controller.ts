@@ -19,6 +19,7 @@ import {
   SearchRidesDto,
   BookRideDto,
   CancelRideDto,
+  RideFilter,
 } from './dto/book-ride.dto';
 
 interface AuthRequest {
@@ -50,7 +51,10 @@ export class RideController {
       sortBy: raw.sortBy as any,
       date: raw.date,
       time: raw.time,
-      filter: (raw.filter ?? raw.type)?.toUpperCase() as any,
+      filter:
+        raw.womenOnly === 'true'
+          ? (RideFilter.WOMEN_ONLY as any)
+          : ((raw.filter ?? raw.type)?.toUpperCase() as any),
     };
     return this.rideService.searchAvailable(req.user.userId, query);
   }

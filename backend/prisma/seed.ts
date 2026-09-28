@@ -231,7 +231,7 @@ async function main() {
 
   const dp1 = await prisma.driverProfile.upsert({
     where: { driverId: proDriver1.id },
-    update: {},
+    update: { driverType: 'BOTH' },
     create: {
       driverId: proDriver1.id,
       driverType: 'PROFESSIONAL',
@@ -350,6 +350,22 @@ async function main() {
       licensePlate: 'DL-01-AB-1234',
       capacity: 4,
       isCommercial: true,
+      verificationStatus: 'PASSED',
+    },
+  });
+
+  // Guarantee the primary test driver (Suresh / +919000000100) has a vehicle
+  const v1b = await prisma.vehicles.upsert({
+    where: { licensePlate: 'DL-04-XY-5678' },
+    update: {},
+    create: {
+      driverId: dp1.driverId,
+      make: 'Honda',
+      model: 'City',
+      color: 'White',
+      licensePlate: 'DL-04-XY-5678',
+      capacity: 4,
+      isCommercial: false,
       verificationStatus: 'PASSED',
     },
   });

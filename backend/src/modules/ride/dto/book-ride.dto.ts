@@ -83,6 +83,26 @@ export class BookRideDto {
   @IsString()
   instanceId?: string;
 
+  @ApiPropertyOptional({ example: 28.6139 })
+  @IsOptional()
+  @IsNumber()
+  pickupLat?: number;
+
+  @ApiPropertyOptional({ example: 77.209 })
+  @IsOptional()
+  @IsNumber()
+  pickupLng?: number;
+
+  @ApiPropertyOptional({ example: 28.5355 })
+  @IsOptional()
+  @IsNumber()
+  dropLat?: number;
+
+  @ApiPropertyOptional({ example: 77.391 })
+  @IsOptional()
+  @IsNumber()
+  dropLng?: number;
+
   @ApiProperty({ example: 1 })
   @IsNumber()
   @Min(1)

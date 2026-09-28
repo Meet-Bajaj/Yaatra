@@ -98,7 +98,7 @@ export class DriverService {
     const results = await this.prisma.$queryRawUnsafe<
       Array<{ ride_id: string }>
     >(
-      `INSERT INTO recurring_rides (ride_id, driver_id, vehicle_id, route, "schedule", price_per_seat, max_passengers, women_only, status, created_at, updated_at)
+      `INSERT INTO recurring_rides (ride_id, "driverId", "vehicleId", route, "schedule", "pricePerSeat", "maxPassengers", "womenOnly", status, created_at, updated_at)
        VALUES (gen_random_uuid()::text, $1, $2, ST_GeogFromText($3)::geography, $4::jsonb, $5, $6, $7, 'ACTIVE', NOW(), NOW())
        RETURNING ride_id`,
       profile.driverId,
@@ -112,8 +112,15 @@ export class DriverService {
 
     const offerId = results[0].ride_id;
 
+    // Generate bookable instances for the next 30 days
+    const instanceCount = await this.generateInstances(
+      offerId,
+      dto.schedule,
+      30,
+    );
+
     this.logger.log(
-      `Offer ${offerId} created by ${driverId}: ${dto.pickup.address} → ${dto.drop.address}`,
+      `Offer ${offerId} created by ${driverId}: ${dto.pickup.address} → ${dto.drop.address} (${instanceCount} instances)`,
     );
 
     return this.prisma.recurringRide.findUnique({
@@ -130,6 +137,69 @@ export class DriverService {
         instances: true,
       },
     });
+  }
+
+  private async generateInstances(
+    rideId: string,
+    slots: Array<{ day: string; departureTime: string }>,
+    horizonDays: number,
+  ): Promise<number> {
+    const dayMap: Record<string, number> = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+      SUN: 0,
+      MON: 1,
+      TUE: 2,
+      WED: 3,
+      THU: 4,
+      FRI: 5,
+      SAT: 6,
+    };
+
+    const normalized = slots
+      .map((slot) => ({
+        dow: dayMap[(slot.day || '').toUpperCase().trim()],
+        time: (slot.departureTime || '09:00').slice(0, 5),
+      }))
+      .filter((slot) => slot.dow !== undefined);
+
+    if (normalized.length === 0) return 0;
+
+    const now = new Date();
+    const data: Array<{
+      rideId: string;
+      date: Date;
+      departureTime: Date;
+      status: 'SCHEDULED';
+    }> = [];
+
+    for (let i = 0; i <= horizonDays; i++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      for (const slot of normalized) {
+        if (day.getDay() !== slot.dow) continue;
+
+        const [hh, mm] = slot.time.split(':').map((n) => parseInt(n, 10));
+        const departure = new Date(day);
+        departure.setHours(hh || 0, mm || 0, 0, 0);
+        if (departure.getTime() <= now.getTime()) continue; // skip past slots
+
+        data.push({
+          rideId,
+          date: new Date(day),
+          departureTime: departure,
+          status: 'SCHEDULED',
+        });
+      }
+    }
+
+    if (data.length === 0) return 0;
+    const res = await this.prisma.rideInstance.createMany({ data });
+    return res.count;
   }
 
   async getOffers(driverId: string) {
@@ -190,17 +260,17 @@ export class DriverService {
     paramIdx++;
 
     if (dto.seats) {
-      updates.push(`max_passengers = $${paramIdx}`);
+      updates.push(`"maxPassengers" = $${paramIdx}`);
       params.push(dto.seats);
       paramIdx++;
     }
     if (dto.pricePerSeat) {
-      updates.push(`price_per_seat = $${paramIdx}`);
+      updates.push(`"pricePerSeat" = $${paramIdx}`);
       params.push(dto.pricePerSeat);
       paramIdx++;
     }
     if (dto.womenOnly !== undefined) {
-      updates.push(`women_only = $${paramIdx}`);
+      updates.push(`"womenOnly" = $${paramIdx}`);
       params.push(dto.womenOnly);
       paramIdx++;
     }
@@ -423,15 +493,15 @@ export class DriverService {
   async getProDriverRequests(driverId: string) {
     const profile = await this.ensureDriverProfile(driverId);
 
-    if (!profile.isOnline) {
-      throw new BadRequestException('Go online first to receive requests');
-    }
-
     const trips = await this.prisma.trip.findMany({
       where: {
         OR: [
-          { driverId, status: 'DRIVER_ASSIGNED' },
-          { status: 'SEARCHING', driverId: null },
+          {
+            driverId,
+            status: { in: ['DRIVER_ASSIGNED', 'ARRIVING', 'IN_PROGRESS'] },
+          },
+          // Unassigned searching pool only visible while online
+          ...(profile.isOnline ? [{ status: 'SEARCHING' as const, driverId: null }] : []),
         ],
       },
       include: {
@@ -536,7 +606,7 @@ export class DriverService {
     if (trip.driverId !== driverId) {
       throw new ForbiddenException('Not your trip');
     }
-    if (trip.status !== 'IN_PROGRESS') {
+    if (!['ARRIVING', 'IN_PROGRESS'].includes(trip.status)) {
       throw new BadRequestException('Trip is not in progress');
     }
 
@@ -597,12 +667,27 @@ export class DriverService {
       0,
     );
 
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const todayTripEarnings = completedTrips
+      .filter((t) => (t.endTime || t.createdAt) >= startOfDay)
+      .reduce((sum, t) => sum + Number(t.fareFinal || t.fareEstimate || 0), 0);
+    const todayBookingEarnings = completedBookings
+      .filter((b) => b.createdAt >= startOfDay)
+      .reduce((sum, b) => sum + Number(b.fareTotal) - Number(b.commission), 0);
+
     return {
       totalEarnings: tripEarnings + offerEarnings,
       tripEarnings,
       offerEarnings,
       totalTrips: completedTrips.length,
       totalBookings: completedBookings.length,
+      todayTrips:
+        completedTrips.filter((t) => (t.endTime || t.createdAt) >= startOfDay)
+          .length +
+        completedBookings.filter((b) => b.createdAt >= startOfDay).length,
+      todayEarnings: todayTripEarnings + todayBookingEarnings,
       recentTrips: completedTrips.slice(0, 10),
       recentBookings: completedBookings.slice(0, 10),
     };

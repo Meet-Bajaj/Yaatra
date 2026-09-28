@@ -176,10 +176,66 @@ export class RideService {
   }
 
   private async bookOnDemand(userId: string, dto: BookRideDto) {
+    // Path A: fresh trip from the rider's own pickup/drop coordinates
     if (!dto.tripId) {
-      throw new BadRequestException('tripId required for on-demand booking');
+      const hasCoords =
+        dto.pickupLat != null &&
+        dto.pickupLng != null &&
+        dto.dropLat != null &&
+        dto.dropLng != null;
+
+      if (!hasCoords) {
+        throw new BadRequestException(
+          'tripId or pickup/drop coordinates required',
+        );
+      }
+
+      const distanceKm =
+        Math.round(
+          this.haversineKm(
+            dto.pickupLat!,
+            dto.pickupLng!,
+            dto.dropLat!,
+            dto.dropLng!,
+          ) * 10,
+        ) / 10;
+      const durationMin = Math.max(5, Math.round(distanceKm * 3));
+      const fareEstimate = Math.round(
+        FARE_CONSTANTS.PRO_BASE_FARE +
+          FARE_CONSTANTS.PRO_COST_PER_KM * distanceKm +
+          FARE_CONSTANTS.PRO_COST_PER_MIN * durationMin,
+      );
+
+      const newTrip = await this.prisma.trip.create({
+        data: {
+          riderId: userId,
+          status: 'SEARCHING',
+          pickupLat: dto.pickupLat!,
+          pickupLng: dto.pickupLng!,
+          dropLat: dto.dropLat!,
+          dropLng: dto.dropLng!,
+          pickupAddress: dto.pickupAddress || '',
+          dropAddress: dto.dropAddress || '',
+          fareEstimate,
+          distanceKm,
+          durationMin,
+          pickupTime: new Date(),
+        },
+        include: {
+          rider: {
+            select: { id: true, name: true, phone: true },
+          },
+        },
+      });
+
+      this.logger.log(
+        `On-demand trip ${newTrip.id} created by rider ${userId} (${distanceKm} km)`,
+      );
+
+      return newTrip;
     }
 
+    // Path B: clone an existing searching trip
     const trip = await this.prisma.trip.findUnique({
       where: { id: dto.tripId },
     });
@@ -192,7 +248,6 @@ export class RideService {
       throw new BadRequestException('Cannot book your own trip');
     }
 
-    // For on-demand, the rider creates the trip request
     const newTrip = await this.prisma.trip.create({
       data: {
         riderId: userId,
@@ -206,7 +261,7 @@ export class RideService {
         fareEstimate: trip.fareEstimate,
         distanceKm: trip.distanceKm,
         durationMin: trip.durationMin,
-        pickupTime: dto.pickupAddress ? new Date() : undefined,
+        pickupTime: new Date(),
       },
       include: {
         rider: {

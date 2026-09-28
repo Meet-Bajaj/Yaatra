@@ -21,17 +21,6 @@ interface LiveTrackingMapProps {
   height?: string;
 }
 
-function FallbackMap({ className, height }: { className?: string; height?: string }) {
-  return (
-    <div
-      className={`relative flex items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] ${className || ""}`}
-      style={{ height }}
-    >
-      <p className="text-xs text-white/30">Map unavailable</p>
-    </div>
-  );
-}
-
 export function LiveTrackingMap(props: LiveTrackingMapProps) {
   if (isLeaflet()) {
     return <LeafletLiveTrackingMap {...props} />;

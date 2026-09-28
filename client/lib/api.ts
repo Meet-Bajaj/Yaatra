@@ -37,6 +37,8 @@ api.interceptors.response.use(
       if (hadToken && typeof window !== "undefined") {
         isRedirecting = true;
         localStorage.removeItem("yaatra-auth");
+        // Session expiry must hard-navigate to drop client state; no router available in interceptors.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/login";
       }
     }

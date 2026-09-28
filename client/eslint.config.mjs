@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Dev tooling scripts (CommonJS puppeteer helpers, not part of the app):
+    "audit.js",
+    "screenshot.js",
   ]),
 ]);
 

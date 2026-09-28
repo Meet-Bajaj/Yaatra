@@ -16,7 +16,7 @@ export const loginSchema = z.object({
     .string()
     .min(10, "Phone number must be at least 10 digits")
     .regex(/^\+?\d{10,13}$/, "Phone number must be valid (e.g. 9876543210 or +919876543210)"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const registerSchema = z.object({

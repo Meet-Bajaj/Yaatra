@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useLocationStore } from "@/stores/locationStore";
-import { connectSocket, disconnectSocket, getSocket } from "@/lib/socket";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 
 export function useSocket() {
   const token = useAuthStore((s) => s.token);
@@ -66,7 +66,7 @@ export function useSocket() {
       disconnectSocket();
       connectedRef.current = false;
     };
-  }, [hasHydrated, token, addNotification, setUnreadCount]);
+  }, [hasHydrated, token, addNotification, setUnreadCount, setDriverPosition]);
 
   return null;
 }

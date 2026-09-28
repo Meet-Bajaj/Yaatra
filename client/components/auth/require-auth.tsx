@@ -7,7 +7,6 @@ import { useAuthStore } from "@/stores/authStore";
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
-  const user = useAuthStore((s) => s.user);
   const onboardingComplete = useAuthStore((s) => s.onboardingComplete);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 

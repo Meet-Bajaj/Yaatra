@@ -6,8 +6,7 @@ import { ArrowLeft, X, Loader2, Search } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRideSearchStore } from "@/stores/rideSearchStore";
 import { LiveTrackingMap } from "@/components/maps/live-tracking-map";
-import api from "@/lib/api";
-import { API } from "@/lib/endpoints";
+import { fetchAvailableRides } from "@/lib/ride-search";
 
 export default function RideSearchingPage() {
   const router = useRouter();
@@ -25,29 +24,8 @@ export default function RideSearchingPage() {
   }, []);
 
   const { data: rides = [], isLoading } = useQuery({
-    queryKey: ["rides-available-searching", pickup?.address, dropoff?.address],
-    queryFn: async () => {
-      try {
-        const params = new URLSearchParams();
-        if (pickup) {
-          params.set("pickupLat", String(pickup.lat));
-          params.set("pickupLng", String(pickup.lng));
-          params.set("pickupAddress", pickup.address);
-        }
-        if (dropoff) {
-          params.set("dropoffLat", String(dropoff.lat));
-          params.set("dropoffLng", String(dropoff.lng));
-          params.set("dropoffAddress", dropoff.address);
-        }
-        if (filters.type !== "all") params.set("type", filters.type);
-        if (filters.womenOnly) params.set("womenOnly", "true");
-        params.set("sortBy", filters.sortBy);
-        const res = await api.get(`${API.rides.available}?${params.toString()}`);
-        return Array.isArray(res.data) ? res.data : [];
-      } catch {
-        return [];
-      }
-    },
+    queryKey: ["rides-available-searching", pickup?.address, dropoff?.address, filters],
+    queryFn: () => fetchAvailableRides({ pickup, dropoff, filters }),
     refetchInterval: 3000,
     enabled: !!pickup && !!dropoff,
   });

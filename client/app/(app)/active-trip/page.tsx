@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Share2, AlertTriangle, Loader2 } from "lucide-react";
+import { Share2, AlertTriangle, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -17,15 +17,14 @@ interface ActiveTrip {
   id: string;
   status: string;
   pickupAddress?: string;
-  dropoffAddress?: string;
+  dropAddress?: string;
   pickupLat?: number;
   pickupLng?: number;
-  dropoffLat?: number;
-  dropoffLng?: number;
-  driverName?: string;
-  driverPhone?: string;
-  vehicleInfo?: string;
-  fare?: number;
+  dropLat?: number;
+  dropLng?: number;
+  driver?: { id: string; name: string; avatarUrl?: string };
+  fareFinal?: number | string;
+  fareEstimate?: number | string;
 }
 
 export default function ActiveTripPage() {
@@ -43,11 +42,15 @@ export default function ActiveTripPage() {
         const res = await api.get(API.rides.upcoming);
         const trips = Array.isArray(res.data) ? res.data : [];
         const active = trips.find(
-          (t: ActiveTrip) => t.status === "ACTIVE" || t.status === "IN_PROGRESS" || t.status === "DRIVER_ARRIVING"
+          (t: ActiveTrip) =>
+            t.status === "SEARCHING" ||
+            t.status === "DRIVER_ASSIGNED" ||
+            t.status === "ARRIVING" ||
+            t.status === "IN_PROGRESS"
         );
-        return active as ActiveTrip | undefined;
+        return (active ?? null) as ActiveTrip | null;
       } catch {
-        return undefined;
+        return null;
       }
     },
     refetchInterval: 5000, // poll every 5s for status changes
@@ -110,16 +113,20 @@ export default function ActiveTripPage() {
   const pickup = trip.pickupLat && trip.pickupLng
     ? { lat: trip.pickupLat, lng: trip.pickupLng }
     : undefined;
-  const dropoff = trip.dropoffLat && trip.dropoffLng
-    ? { lat: trip.dropoffLat, lng: trip.dropoffLng }
+  const dropoff = trip.dropLat && trip.dropLng
+    ? { lat: trip.dropLat, lng: trip.dropLng }
     : undefined;
 
   const statusLabel =
-    trip.status === "DRIVER_ARRIVING"
-      ? "Driver is arriving"
-      : trip.status === "IN_PROGRESS"
-        ? "Trip in progress"
-        : "Waiting for driver";
+    trip.status === "SEARCHING"
+      ? "Finding a driver..."
+      : trip.status === "DRIVER_ASSIGNED"
+        ? "Driver assigned"
+        : trip.status === "ARRIVING"
+          ? "Driver is arriving"
+          : trip.status === "IN_PROGRESS"
+            ? "Trip in progress"
+            : trip.status;
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -136,22 +143,16 @@ export default function ActiveTripPage() {
         </div>
       </div>
 
-      {trip.driverName && (
+      {trip.driver?.name && (
         <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-sm font-bold text-white shrink-0">
-              {trip.driverName?.[0] || "D"}
+              {trip.driver.name?.[0] || "D"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white">{trip.driverName}</p>
-              {trip.vehicleInfo && (
-                <p className="text-xs text-white/50 truncate">{trip.vehicleInfo}</p>
-              )}
+              <p className="text-sm font-semibold text-white">{trip.driver.name}</p>
             </div>
             <div className="flex gap-2 shrink-0">
-              <button className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target">
-                <Phone className="h-4 w-4" />
-              </button>
               <button
                 onClick={() => shareTripMutation.mutate(trip.id)}
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/60 hover:bg-white/15 transition-colors touch-target"
@@ -170,11 +171,11 @@ export default function ActiveTripPage() {
             <span>{trip.pickupAddress}</span>
           </div>
         )}
-        {trip.pickupAddress && trip.dropoffAddress && <div className="ml-1 h-4 w-px bg-white/10" />}
-        {trip.dropoffAddress && (
+        {trip.pickupAddress && trip.dropAddress && <div className="ml-1 h-4 w-px bg-white/10" />}
+        {trip.dropAddress && (
           <div className="flex items-center gap-2 text-sm text-white/60">
             <div className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-            <span>{trip.dropoffAddress}</span>
+            <span>{trip.dropAddress}</span>
           </div>
         )}
       </div>

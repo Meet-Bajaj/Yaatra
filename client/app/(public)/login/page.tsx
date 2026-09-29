@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -10,16 +10,13 @@ import { loginSchema } from "@/lib/validators";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { useAuthStore } from "@/stores/authStore";
+import { useOtpFlow, OTP_LIMITS } from "@/hooks/use-otp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OTPInput } from "@/components/auth/otp-input";
 import { cn } from "@/lib/utils";
 
 type LoginMode = "otp" | "password";
-
-const MAX_OTP_ATTEMPTS = 5;
-const LOCKOUT_SECONDS = 300;
-const RESEND_SECONDS = 30;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,14 +26,11 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [otpAttempts, setOtpAttempts] = useState(0);
-  const [locked, setLocked] = useState(false);
-  const [lockoutTimer, setLockoutTimer] = useState(0);
-  const [resendCountdown, setResendCountdown] = useState(0);
-  const canResend = resendCountdown <= 0 && !locked;
-
   const [phone, setPhone] = useState("");
+
+  const otpFlow = useOtpFlow({
+    phone: phone ? (phone.startsWith("+") ? phone : `+91${phone}`) : "",
+  });
 
   const {
     register,
@@ -45,21 +39,6 @@ export default function LoginPage() {
   } = useForm<{ password: string }>({
     resolver: zodResolver(loginSchema.pick({ password: true })),
   });
-
-  useEffect(() => {
-    if (resendCountdown <= 0) return;
-    const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendCountdown]);
-
-  useEffect(() => {
-    if (lockoutTimer <= 0) {
-      if (locked) setLocked(false);
-      return;
-    }
-    const timer = setTimeout(() => setLockoutTimer(lockoutTimer - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [lockoutTimer, locked]);
 
   const formatPhone = (p: string) => (p.startsWith("+") ? p : `+91${p}`);
 
@@ -73,7 +52,7 @@ export default function LoginPage() {
     try {
       await api.post(API.auth.otp, { phone: formatPhone(phone) });
       setOtpSent(true);
-      setResendCountdown(RESEND_SECONDS);
+      otpFlow.startResendCountdown();
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -81,56 +60,6 @@ export default function LoginPage() {
       setError(message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = useCallback(async () => {
-    if (otp.length !== 6 || locked) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post(API.auth.verify, { phone: formatPhone(phone), code: otp });
-      const { user, access_token, isNewUser } = res.data;
-
-      if (isNewUser) {
-        // Backend auto-created a stub user — this phone is NOT registered.
-        // Do NOT store auth. Redirect to register.
-        setError("No account found for this number. Please register first.");
-        setOtp("");
-        return;
-      }
-
-      // Existing registered user — store auth and proceed to dashboard
-      setAuth(user, access_token);
-      setOnboardingComplete(true);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const newAttempts = otpAttempts + 1;
-      setOtpAttempts(newAttempts);
-
-      if (newAttempts >= MAX_OTP_ATTEMPTS) {
-        setLocked(true);
-        setLockoutTimer(LOCKOUT_SECONDS);
-        setError(`Too many failed attempts. Try again in ${LOCKOUT_SECONDS / 60} minutes.`);
-      } else {
-        const remaining = MAX_OTP_ATTEMPTS - newAttempts;
-        setError(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
-      }
-      setOtp("");
-    } finally {
-      setLoading(false);
-    }
-  }, [otp, locked, phone, otpAttempts, setAuth, setOnboardingComplete, router]);
-
-  const handleResendOtp = async () => {
-    if (!canResend) return;
-    setResendCountdown(RESEND_SECONDS);
-    setError("");
-    try {
-      await api.post(API.auth.resendOtp, { phone: formatPhone(phone) });
-    } catch {
-      setResendCountdown(0);
-      setError("Failed to resend OTP. Please try again.");
     }
   };
 
@@ -157,13 +86,11 @@ export default function LoginPage() {
     if (newMode === mode) return;
     setMode(newMode);
     setError("");
-    setOtp("");
     setOtpSent(false);
-    setOtpAttempts(0);
-    setLocked(false);
-    setLockoutTimer(0);
-    setResendCountdown(0);
+    otpFlow.reset();
   };
+
+  const displayError = error || otpFlow.error;
 
   return (
     <div className="animate-fade-in mx-auto w-full max-w-md px-4 py-8 md:px-8 md:py-12">
@@ -173,9 +100,9 @@ export default function LoginPage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-5 md:p-8">
-        {error && (
+        {displayError && (
           <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {error}
+            {displayError}
           </div>
         )}
 
@@ -241,35 +168,36 @@ export default function LoginPage() {
                   Enter the 6-digit code sent to <span className="text-white">+91 {phone}</span>
                 </p>
 
-                {locked ? (
+                {otpFlow.locked ? (
                   <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-5">
                     <Lock className="h-8 w-8 text-red-400" />
                     <div className="text-center">
                       <p className="text-sm font-medium text-red-400">Account temporarily locked</p>
                       <p className="mt-1 text-xs text-white/50">
-                        Try again in {Math.floor(lockoutTimer / 60)}:{String(lockoutTimer % 60).padStart(2, "0")}
+                        Try again in {Math.floor(otpFlow.lockoutTimer / 60)}:
+                        {String(otpFlow.lockoutTimer % 60).padStart(2, "0")}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex justify-center">
-                    <OTPInput value={otp} onChange={setOtp} />
+                    <OTPInput value={otpFlow.otp} onChange={otpFlow.setOtp} />
                   </div>
                 )}
 
                 <Button
-                  onClick={handleVerifyOtp}
+                  onClick={otpFlow.verify}
                   className="w-full"
                   size="lg"
-                  disabled={otp.length !== 6 || loading || locked}
+                  disabled={otpFlow.otp.length !== 6 || otpFlow.loading || otpFlow.locked}
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                  {otpFlow.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
                 </Button>
 
                 <div className="text-center">
-                  {canResend ? (
+                  {otpFlow.canResend ? (
                     <button
-                      onClick={handleResendOtp}
+                      onClick={otpFlow.resend}
                       className="flex items-center gap-1.5 mx-auto text-sm font-medium text-white hover:underline touch-target"
                     >
                       <RotateCcw className="h-3 w-3" />
@@ -277,14 +205,16 @@ export default function LoginPage() {
                     </button>
                   ) : (
                     <p className="text-sm text-white/50">
-                      Resend OTP in <span className="font-medium text-white">{resendCountdown}s</span>
+                      Resend OTP in{" "}
+                      <span className="font-medium text-white">{otpFlow.resendCountdown}s</span>
                     </p>
                   )}
                 </div>
 
-                {otpAttempts > 0 && !locked && (
+                {otpFlow.attempts > 0 && !otpFlow.locked && (
                   <p className="text-center text-[10px] text-white/40">
-                    {MAX_OTP_ATTEMPTS - otpAttempts} attempt{MAX_OTP_ATTEMPTS - otpAttempts !== 1 ? "s" : ""} remaining before lockout
+                    {OTP_LIMITS.MAX_ATTEMPTS - otpFlow.attempts} attempt
+                    {OTP_LIMITS.MAX_ATTEMPTS - otpFlow.attempts !== 1 ? "s" : ""} remaining before lockout
                   </p>
                 )}
               </>

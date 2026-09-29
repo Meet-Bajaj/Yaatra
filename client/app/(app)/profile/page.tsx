@@ -6,7 +6,6 @@ import {
   Shield, CreditCard, Lock, Phone, Car,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { getInitials } from "@/lib/utils";
@@ -16,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 export default function ProfilePage() {
-  const router = useRouter();
   const { user, logout, updateUser } = useAuthStore();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,10 +47,15 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
+      // Hydrate the edit form once the fetched profile arrives (async data post-mount).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(user.name || "");
       setEmail(user.email || "");
       setCity(user.city || "");
     }
+    // Primitive deps intentionally: only re-sync when values change, so a
+    // background profile refetch never clobbers what the user is typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.name, user?.email, user?.city]);
 
   // ─── Mutations ─────────────────────────────────────────

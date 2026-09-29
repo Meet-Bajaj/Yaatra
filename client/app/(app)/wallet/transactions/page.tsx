@@ -2,38 +2,22 @@
 
 import { ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
-import { API } from "@/lib/endpoints";
 import { cn, formatINR } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
-
-interface Transaction {
-  id: string;
-  type: string;
-  amount: number;
-  description: string;
-  createdAt: string;
-  method?: string;
-}
+import { fetchWalletTransactions, type WalletTxn } from "@/lib/wallet";
 
 const typeIcon: Record<string, typeof ArrowUpRight> = {
   DEBIT: ArrowUpRight,
   TOPUP: ArrowDownLeft,
   CREDIT: ArrowDownLeft,
   REFUND: RefreshCw,
+  ADJUSTMENT: RefreshCw,
 };
 
 export default function WalletTransactionsPage() {
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ["wallet-transactions"],
-    queryFn: async () => {
-      try {
-        const res = await api.get(API.wallet.transactions);
-        return (res.data || []) as Transaction[];
-      } catch {
-        return [];
-      }
-    },
+    queryFn: fetchWalletTransactions,
   });
 
   return (
@@ -48,7 +32,7 @@ export default function WalletTransactionsPage() {
         </div>
       ) : transactions.length > 0 ? (
         <div className="space-y-2">
-          {transactions.map((txn) => {
+          {transactions.map((txn: WalletTxn) => {
             const Icon = typeIcon[txn.type] || ArrowUpRight;
             return (
               <div key={txn.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3">
@@ -62,14 +46,13 @@ export default function WalletTransactionsPage() {
                   <p className="text-sm font-medium text-white">{txn.description}</p>
                   <p className="text-xs text-white/40">
                     {new Date(txn.createdAt).toLocaleDateString()}
-                    {txn.method ? ` - ${txn.method}` : ""}
                   </p>
                 </div>
                 <p className={cn(
                   "text-sm font-semibold",
                   txn.amount > 0 ? "text-green-400" : "text-white"
                 )}>
-                  {txn.amount > 0 ? "+" : ""}{formatINR(txn.amount)}
+                  {txn.amount > 0 ? "+" : ""}{formatINR(Math.abs(txn.amount))}
                 </p>
               </div>
             );

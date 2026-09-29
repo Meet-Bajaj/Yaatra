@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   Car, Calendar, ArrowRight, Clock, MapPin, Wallet, Bell, Shield,
-  Wifi, WifiOff, TrendingUp, Users, ArrowUpRight, Check, X, Loader2,
+  Wifi, WifiOff, TrendingUp, Users, Check, X,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -67,12 +67,27 @@ export default function DashboardPage() {
     queryFn: async () => {
       try {
         const res = await api.get(API.driver.requests);
-        return Array.isArray(res.data) ? res.data : [];
+        const raw = Array.isArray(res.data) ? res.data : [];
+        return raw.map(
+          (r: {
+            id: string;
+            pickupAddress?: string;
+            dropAddress?: string;
+            pickupTime?: string;
+            rider?: { name?: string };
+          }) => ({
+            id: r.id,
+            riderName: r.rider?.name || "Rider",
+            route: `${r.pickupAddress || "?"} → ${r.dropAddress || "?"}`,
+            time: r.pickupTime ? new Date(r.pickupTime).toLocaleString() : "Now",
+          })
+        ) as Array<{ id: string; riderName: string; route: string; time: string }>;
       } catch {
         return [];
       }
     },
     enabled: isDriver,
+    refetchInterval: 10000,
   });
 
   const { data: vehicles = [] } = useQuery({
@@ -121,12 +136,12 @@ export default function DashboardPage() {
   });
 
   const acceptMutation = useMutation({
-    mutationFn: (id: string) => api.post(API.driver.acceptRequest(id)),
+    mutationFn: (tripId: string) => api.post("/driver/accept", { tripId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["driver-requests"] }),
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) => api.post(API.driver.rejectRequest(id)),
+    mutationFn: (tripId: string) => api.post("/driver/reject", { tripId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["driver-requests"] }),
   });
 
@@ -141,13 +156,48 @@ export default function DashboardPage() {
           Hello, {user?.name?.split(" ")[0] || "there"}
         </h1>
         <p className="text-sm text-white/60">
-          {isDriver && isRider
-            ? "Ready to ride or drive?"
-            : isDriver
-              ? "Ready to hit the road?"
-              : "Where would you like to go today?"}
+          {isAdmin
+            ? "Manage the Yaatra platform"
+            : isDriver && isRider
+              ? "Ready to ride or drive?"
+              : isDriver
+                ? "Ready to hit the road?"
+                : "Where would you like to go today?"}
         </p>
       </div>
+
+      {/* ─── Admin: Overview Links ─────────────────────── */}
+      {isAdmin && (
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+          <Link
+            href="/admin"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-5 md:p-6 transition-all duration-300 hover:border-white/20 active:scale-[0.98]"
+          >
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white md:h-12 md:w-12">
+              <Shield className="h-5 w-5 md:h-6 md:w-6 text-black" />
+            </div>
+            <h3 className="mb-1 text-base font-semibold text-white md:text-lg">Admin Dashboard</h3>
+            <p className="mb-3 text-xs text-white/60 md:mb-4 md:text-sm">Platform stats and overview</p>
+            <div className="flex items-center gap-1 text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+              Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/users"
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5 md:p-6 transition-all duration-300 hover:border-white/10 active:scale-[0.98]"
+          >
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 md:h-12 md:w-12">
+              <Users className="h-5 w-5 md:h-6 md:w-6 text-white" />
+            </div>
+            <h3 className="mb-1 text-base font-semibold text-white md:text-lg">Users</h3>
+            <p className="mb-3 text-xs text-white/60 md:mb-4 md:text-sm">Manage riders and drivers</p>
+            <div className="flex items-center gap-1 text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+              Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* ─── Driver: Online Toggle + Earnings ──────────── */}
       {isDriver && (
@@ -290,6 +340,7 @@ export default function DashboardPage() {
       )}
 
       {/* ─── Upcoming Ride (shared) ─────────────────────── */}
+      {!isAdmin && (
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
@@ -303,8 +354,44 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* ─── Admin: Quick Links ─────────────────────────── */}
+      {isAdmin && (
+        <div className="grid gap-2 grid-cols-2 sm:gap-3 sm:grid-cols-4">
+          <Link
+            href="/admin/verification"
+            className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 transition-colors hover:bg-white/5 active:bg-white/10 sm:p-4 touch-target"
+          >
+            <Shield className="h-5 w-5 text-white/60" />
+            <span className="text-xs font-medium text-white/60">Verification</span>
+          </Link>
+          <Link
+            href="/admin/disputes"
+            className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 transition-colors hover:bg-white/5 active:bg-white/10 sm:p-4 touch-target"
+          >
+            <Bell className="h-5 w-5 text-white/60" />
+            <span className="text-xs font-medium text-white/60">Disputes</span>
+          </Link>
+          <Link
+            href="/wallet"
+            className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 transition-colors hover:bg-white/5 active:bg-white/10 sm:p-4 touch-target"
+          >
+            <Wallet className="h-5 w-5 text-white/60" />
+            <span className="text-xs font-medium text-white/60">Wallet</span>
+          </Link>
+          <Link
+            href="/notifications"
+            className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 transition-colors hover:bg-white/5 active:bg-white/10 sm:p-4 touch-target"
+          >
+            <Bell className="h-5 w-5 text-white/60" />
+            <span className="text-xs font-medium text-white/60">Alerts</span>
+          </Link>
+        </div>
+      )}
 
       {/* ─── Quick Links (shared) ───────────────────────── */}
+      {!isAdmin && (
       <div className={cn("grid gap-2 sm:gap-3", isDriver ? "grid-cols-4" : "grid-cols-3")}>
         <Link
           href="/wallet"
@@ -337,6 +424,7 @@ export default function DashboardPage() {
           </Link>
         )}
       </div>
+      )}
 
       {/* ─── City (shared) ──────────────────────────────── */}
       <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">

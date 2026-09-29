@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { cn, formatINR } from "@/lib/utils";
 
 interface EarningsSummary {
-  today: number;
-  todayRides: number;
-  onlineHours: number;
+  totalEarnings: number;
+  todayEarnings: number;
+  todayTrips: number;
 }
 
 function getZoneFromCoords(lat: number, lng: number): string {
@@ -143,16 +143,16 @@ export default function DriverOnlinePage() {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-white/50">Today&apos;s Summary</h3>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-lg font-bold text-white">{earnings?.todayRides ?? 0}</p>
+            <p className="text-lg font-bold text-white">{earnings?.todayTrips ?? 0}</p>
             <p className="text-[10px] text-white/50">Rides</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-white">{formatINR(earnings?.today ?? 0)}</p>
+            <p className="text-lg font-bold text-white">{formatINR(earnings?.todayEarnings ?? 0)}</p>
             <p className="text-[10px] text-white/50">Earned</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-white">{earnings?.onlineHours ?? 0}h</p>
-            <p className="text-[10px] text-white/50">Online</p>
+            <p className="text-lg font-bold text-white">{formatINR(earnings?.totalEarnings ?? 0)}</p>
+            <p className="text-[10px] text-white/50">All Time</p>
           </div>
         </div>
       </div>

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { cn } from "@/lib/utils";
 
 interface DocUser {
   id: string;

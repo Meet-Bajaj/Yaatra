@@ -27,7 +27,24 @@ export default function PlanCommutePage() {
   };
 
   const handleSearch = () => {
-    router.push("/plan-commute/matches");
+    if (!homeCoords || !workCoords) return;
+    const params = new URLSearchParams({
+      pickupAddress: homeAddress,
+      pickupLat: String(homeCoords.lat),
+      pickupLng: String(homeCoords.lng),
+      dropAddress: workAddress,
+      dropLat: String(workCoords.lat),
+      dropLng: String(workCoords.lng),
+      time: departureTime,
+    });
+    if (scheduleType === "single") {
+      // Single-day search: look at tomorrow's instances (today's may already be past)
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      params.set("date", iso);
+    }
+    router.push(`/plan-commute/matches?${params.toString()}`);
   };
 
   const canSearch = homeAddress && workAddress && homeCoords && workCoords;

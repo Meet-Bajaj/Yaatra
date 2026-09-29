@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { ArrowLeft, Send } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function SafetyReportPage() {
+function ReportForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
-  const [rideId, setRideId] = useState("");
+  const [rideId, setRideId] = useState(searchParams.get("tripId") ?? "");
 
   const submitMutation = useMutation({
     mutationFn: () =>
@@ -84,5 +85,13 @@ export default function SafetyReportPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function SafetyReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportForm />
+    </Suspense>
   );
 }

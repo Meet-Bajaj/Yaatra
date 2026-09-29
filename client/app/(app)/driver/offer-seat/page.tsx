@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, Car } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,24 @@ import { cn } from "@/lib/utils";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+const DAY_MAP: Record<string, string> = {
+  Mon: "MONDAY",
+  Tue: "TUESDAY",
+  Wed: "WEDNESDAY",
+  Thu: "THURSDAY",
+  Fri: "FRIDAY",
+  Sat: "SATURDAY",
+  Sun: "SUNDAY",
+};
+
+interface Vehicle {
+  id: string;
+  make?: string;
+  model?: string;
+  color?: string;
+  licensePlate?: string;
+}
+
 export default function OfferSeatPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -22,11 +40,25 @@ export default function OfferSeatPage() {
   const [homeCoords, setHomeCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [workCoords, setWorkCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [departureTime, setDepartureTime] = useState("09:00");
-  const [returnTime, setReturnTime] = useState("18:00");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
   const [seats, setSeats] = useState(2);
   const [pricePerSeat, setPricePerSeat] = useState(80);
   const [womenOnly, setWomenOnly] = useState(false);
+  const [vehicleId, setVehicleId] = useState<string>("");
+
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () => {
+      try {
+        const res = await api.get(API.users.vehicles);
+        return (Array.isArray(res.data) ? res.data : []) as Vehicle[];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const effectiveVehicleId = vehicleId || vehicles[0]?.id || "";
 
   const steps = [
     { label: "Route", description: "Set home and work" },
@@ -36,21 +68,18 @@ export default function OfferSeatPage() {
   ];
 
   const publishMutation = useMutation({
-    mutationFn: () =>
-      api.post(API.driver.offer, {
-        homeAddress,
-        workAddress,
-        homeLat: homeCoords?.lat,
-        homeLng: homeCoords?.lng,
-        workLat: workCoords?.lat,
-        workLng: workCoords?.lng,
-        departureTime,
-        returnTime,
-        days: selectedDays,
+    mutationFn: () => {
+      if (!homeCoords || !workCoords) throw new Error("Missing route coordinates");
+      return api.post(API.driver.offer, {
+        pickup: { lat: homeCoords.lat, lng: homeCoords.lng, address: homeAddress },
+        drop: { lat: workCoords.lat, lng: workCoords.lng, address: workAddress },
+        schedule: selectedDays.map((d) => ({ day: DAY_MAP[d], departureTime })),
         seats,
         pricePerSeat,
         womenOnly,
-      }),
+        vehicleId: effectiveVehicleId,
+      });
+    },
     onSuccess: () => {
       router.push("/driver/offers");
     },
@@ -65,6 +94,10 @@ export default function OfferSeatPage() {
   const handlePublish = () => {
     publishMutation.mutate();
   };
+
+  const publishError =
+    (publishMutation.error as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message || "Failed to publish offer. Please try again.";
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -109,21 +142,45 @@ export default function OfferSeatPage() {
               </button>
             ))}
           </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-sm font-medium text-white/70">Departure</label>
-              <input type="time" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none" />
-            </div>
-            <div className="flex-1">
-              <label className="mb-1.5 block text-sm font-medium text-white/70">Return</label>
-              <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none" />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-white/70">Departure</label>
+            <input type="time" value={departureTime} onChange={(e) => setDepartureTime(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none" />
           </div>
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-white/70">Vehicle</label>
+            {vehicles.length === 0 ? (
+              <p className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-xs text-yellow-400">
+                No vehicles found. Add a vehicle in your profile first.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {vehicles.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setVehicleId(v.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                      effectiveVehicleId === v.id
+                        ? "border-white bg-white/5"
+                        : "border-white/10 hover:border-white/20"
+                    )}
+                  >
+                    <Car className="h-5 w-5 text-white/50" />
+                    <span className="flex-1 text-sm text-white">
+                      {v.make} {v.model}
+                      {v.color ? ` · ${v.color}` : ""}
+                    </span>
+                    {v.licensePlate && <span className="text-xs text-white/40">{v.licensePlate}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-white/70">Available Seats</label>
             <div className="flex gap-2">
@@ -149,14 +206,23 @@ export default function OfferSeatPage() {
           <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-5 space-y-3">
             <div className="flex justify-between text-sm"><span className="text-white/60">Route</span><span className="text-white">{homeAddress || "Home"} to {workAddress || "Work"}</span></div>
             <div className="flex justify-between text-sm"><span className="text-white/60">Schedule</span><span className="text-white">{selectedDays.join(", ")}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-white/60">Time</span><span className="text-white">{departureTime} - {returnTime}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-white/60">Departure</span><span className="text-white">{departureTime}</span></div>
             <div className="flex justify-between text-sm"><span className="text-white/60">Seats</span><span className="text-white">{seats}</span></div>
             <div className="flex justify-between text-sm"><span className="text-white/60">Price/seat</span><span className="text-white">₹{pricePerSeat}</span></div>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Vehicle</span>
+              <span className="text-white">
+                {(() => {
+                  const v = vehicles.find((x) => x.id === effectiveVehicleId);
+                  return v ? `${v.make} ${v.model || ""}` : "—";
+                })()}
+              </span>
+            </div>
             {womenOnly && <div className="flex justify-between text-sm"><span className="text-white/60">Women Only</span><span className="text-pink-400">Yes</span></div>}
           </div>
 
           {publishMutation.isError && (
-            <p className="text-xs text-red-400">Failed to publish offer. Please try again.</p>
+            <p className="text-xs text-red-400">{publishError}</p>
           )}
         </div>
       )}
@@ -173,7 +239,12 @@ export default function OfferSeatPage() {
             if (step === steps.length - 1) handlePublish();
             else setStep(step + 1);
           }}
-          disabled={(step === 0 && (!homeAddress || !workAddress)) || publishMutation.isPending}
+          disabled={
+            (step === 0 && (!homeAddress || !workAddress || !homeCoords || !workCoords)) ||
+            (step === 1 && selectedDays.length === 0) ||
+            (step === 2 && (!effectiveVehicleId || pricePerSeat < 10 || pricePerSeat > 500)) ||
+            publishMutation.isPending
+          }
         >
           {step === steps.length - 1
             ? (publishMutation.isPending ? "Publishing..." : "Publish")

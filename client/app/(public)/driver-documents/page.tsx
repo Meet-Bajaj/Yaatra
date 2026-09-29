@@ -108,7 +108,6 @@ export default function DriverDocumentsPage() {
     }
   };
 
-  const allUploaded = docs.every((d) => d.uploaded || d.file === null);
   const anyUploading = docs.some((d) => d.uploading);
 
   return (

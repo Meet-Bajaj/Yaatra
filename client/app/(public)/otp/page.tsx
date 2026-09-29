@@ -1,97 +1,24 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ArrowLeft, RotateCcw, Lock } from "lucide-react";
-import api from "@/lib/api";
-import { API } from "@/lib/endpoints";
-import { useAuthStore } from "@/stores/authStore";
+import { useOtpFlow, OTP_LIMITS } from "@/hooks/use-otp";
 import { Button } from "@/components/ui/button";
 import { OTPInput } from "@/components/auth/otp-input";
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_SECONDS = 300;
-const RESEND_SECONDS = 30;
-
 function OTPContent() {
   const router = useRouter();
-  const { setAuth, setOnboardingComplete } = useAuthStore();
   const searchParams = useSearchParams();
   const phone = searchParams.get("phone") || "";
 
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [attempts, setAttempts] = useState(0);
-  const [locked, setLocked] = useState(false);
-  const [lockoutTimer, setLockoutTimer] = useState(0);
-  const [resendCountdown, setResendCountdown] = useState(RESEND_SECONDS);
-  const canResend = resendCountdown <= 0 && !locked;
+  const otpFlow = useOtpFlow({ phone });
 
+  // Start the resend countdown as soon as the page opens
   useEffect(() => {
-    if (resendCountdown <= 0) return;
-    const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [resendCountdown]);
-
-  useEffect(() => {
-    if (lockoutTimer <= 0) {
-      if (locked) setLocked(false);
-      return;
-    }
-    const timer = setTimeout(() => setLockoutTimer(lockoutTimer - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [lockoutTimer, locked]);
-
-  const handleVerify = useCallback(async () => {
-    if (otp.length !== 6 || locked) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post(API.auth.verify, { phone, code: otp });
-      const { user, access_token, isNewUser } = res.data;
-
-      if (isNewUser) {
-        // Backend auto-created a stub user — this phone is NOT registered.
-        // Do NOT store auth. Redirect to register.
-        setError("No account found for this number. Please register first.");
-        setOtp("");
-        return;
-      }
-
-      // Existing registered user — store auth and proceed to dashboard
-      setAuth(user, access_token);
-      setOnboardingComplete(true);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
-
-      if (newAttempts >= MAX_ATTEMPTS) {
-        setLocked(true);
-        setLockoutTimer(LOCKOUT_SECONDS);
-        setError(`Too many failed attempts. Try again in ${LOCKOUT_SECONDS / 60} minutes.`);
-      } else {
-        const remaining = MAX_ATTEMPTS - newAttempts;
-        setError(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
-      }
-      setOtp("");
-    } finally {
-      setLoading(false);
-    }
-  }, [otp, locked, phone, attempts, setAuth, setOnboardingComplete, router]);
-
-  const handleResend = async () => {
-    if (!canResend) return;
-    setResendCountdown(RESEND_SECONDS);
-    setError("");
-    try {
-      await api.post("/auth/resend-otp", { phone });
-    } catch {
-      setResendCountdown(0);
-      setError("Failed to resend OTP. Please try again.");
-    }
-  };
+    otpFlow.startResendCountdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="animate-fade-in rounded-2xl border border-white/10 bg-[#0a0a0a] p-8">
@@ -108,39 +35,40 @@ function OTPContent() {
         Enter the 6-digit code sent to <span className="text-white">+91 {phone}</span>
       </p>
 
-      {error && (
+      {otpFlow.error && (
         <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
+          {otpFlow.error}
         </div>
       )}
 
-      {locked ? (
+      {otpFlow.locked ? (
         <div className="mb-6 flex flex-col items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
           <Lock className="h-8 w-8 text-red-400" />
           <div className="text-center">
             <p className="text-sm font-medium text-red-400">Account temporarily locked</p>
             <p className="mt-1 text-xs text-white/40">
-              Try again in {Math.floor(lockoutTimer / 60)}:{String(lockoutTimer % 60).padStart(2, "0")}
+              Try again in {Math.floor(otpFlow.lockoutTimer / 60)}:
+              {String(otpFlow.lockoutTimer % 60).padStart(2, "0")}
             </p>
           </div>
         </div>
       ) : (
-        <OTPInput value={otp} onChange={setOtp} className="mb-6 justify-center" />
+        <OTPInput value={otpFlow.otp} onChange={otpFlow.setOtp} className="mb-6 justify-center" />
       )}
 
       <Button
-        onClick={handleVerify}
+        onClick={otpFlow.verify}
         className="w-full"
         size="lg"
-        disabled={otp.length !== 6 || loading || locked}
+        disabled={otpFlow.otp.length !== 6 || otpFlow.loading || otpFlow.locked}
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+        {otpFlow.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
       </Button>
 
       <div className="mt-4 text-center">
-        {canResend ? (
+        {otpFlow.canResend ? (
           <button
-            onClick={handleResend}
+            onClick={otpFlow.resend}
             className="flex items-center gap-1.5 mx-auto text-sm font-medium text-white hover:underline"
           >
             <RotateCcw className="h-3 w-3" />
@@ -148,14 +76,15 @@ function OTPContent() {
           </button>
         ) : (
           <p className="text-sm text-white/40">
-            Resend OTP in <span className="font-medium text-white">{resendCountdown}s</span>
+            Resend OTP in <span className="font-medium text-white">{otpFlow.resendCountdown}s</span>
           </p>
         )}
       </div>
 
-      {attempts > 0 && !locked && (
+      {otpFlow.attempts > 0 && !otpFlow.locked && (
         <p className="mt-3 text-center text-[10px] text-white/30">
-          {MAX_ATTEMPTS - attempts} attempt{MAX_ATTEMPTS - attempts !== 1 ? "s" : ""} remaining before lockout
+          {OTP_LIMITS.MAX_ATTEMPTS - otpFlow.attempts} attempt
+          {OTP_LIMITS.MAX_ATTEMPTS - otpFlow.attempts !== 1 ? "s" : ""} remaining before lockout
         </p>
       )}
     </div>

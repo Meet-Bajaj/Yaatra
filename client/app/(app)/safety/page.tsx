@@ -27,7 +27,10 @@ export default function SafetyPage() {
     queryFn: async () => {
       try {
         const res = await api.get("/users/me");
-        return (res.data?.emergencyContacts || []) as EmergencyContact[];
+        const raw = res.data?.emergencyContacts;
+        if (!raw) return [];
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? (parsed as EmergencyContact[]) : [];
       } catch {
         return [];
       }

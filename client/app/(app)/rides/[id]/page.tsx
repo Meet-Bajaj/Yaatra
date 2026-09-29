@@ -1,10 +1,8 @@
 "use client";
 
-"use client";
-
 import { use } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, Clock, RotateCcw, Flag } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, RotateCcw, Flag, XCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { API } from "@/lib/endpoints";
@@ -132,6 +130,15 @@ export default function RideDetailPage({ params }: { params: Promise<{ id: strin
           )}
 
           <div className="space-y-2">
+            {ride.status !== "COMPLETED" && ride.status !== "CANCELLED" && (
+              <button
+                onClick={() => cancelMutation.mutate()}
+                disabled={cancelMutation.isPending}
+                className="flex w-full items-center gap-3 rounded-xl border border-red-500/30 bg-[#0a0a0a] p-3 text-left text-sm text-red-400 hover:bg-red-500/5 transition-colors disabled:opacity-50"
+              >
+                <XCircle className="h-4 w-4" /> {cancelMutation.isPending ? "Cancelling..." : "Cancel Ride"}
+              </button>
+            )}
             <button
               onClick={() => rebookMutation.mutate()}
               disabled={rebookMutation.isPending}
@@ -139,7 +146,10 @@ export default function RideDetailPage({ params }: { params: Promise<{ id: strin
             >
               <RotateCcw className="h-4 w-4" /> {rebookMutation.isPending ? "Rebooking..." : "Rebook"}
             </button>
-            <button className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left text-sm text-white/60 hover:bg-white/5 transition-colors">
+            <button
+              onClick={() => router.push(`/safety/report?tripId=${encodeURIComponent(ride.id)}`)}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-left text-sm text-white/60 hover:bg-white/5 transition-colors"
+            >
               <Flag className="h-4 w-4" /> Report Issue
             </button>
           </div>

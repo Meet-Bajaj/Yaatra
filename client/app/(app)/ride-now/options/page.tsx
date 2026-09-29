@@ -4,9 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Star, Users, Clock, Fuel } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
-import { API } from "@/lib/endpoints";
 import { useRideSearchStore } from "@/stores/rideSearchStore";
+import { fetchAvailableRides } from "@/lib/ride-search";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Badge } from "@/components/ui/badge";
@@ -15,55 +14,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { RouteMap } from "@/components/maps/route-map";
 import { cn, formatINR } from "@/lib/utils";
 
-interface RideOption {
-  id: string;
-  driverName: string;
-  driverRating: number;
-  vehicle: string;
-  type: string;
-  pickup: string;
-  dropoff: string;
-  eta: number;
-  fare: number;
-  seats: number;
-  departure: string;
-}
-
 export default function RideOptionsPage() {
   const router = useRouter();
-  const { pickup, dropoff, filters, setFilters } = useRideSearchStore();
-  const [selectedRide, setSelectedRide] = useState<string | null>(null);
+  const { pickup, dropoff, filters, setFilters, setSelectedRide } = useRideSearchStore();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: rides = [], isLoading } = useQuery({
     queryKey: ["rides-available", pickup?.address, dropoff?.address, filters],
-    queryFn: async () => {
-      try {
-        const params = new URLSearchParams();
-        if (pickup) {
-          params.set("pickupLat", String(pickup.lat));
-          params.set("pickupLng", String(pickup.lng));
-          params.set("pickupAddress", pickup.address);
-        }
-        if (dropoff) {
-          params.set("dropoffLat", String(dropoff.lat));
-          params.set("dropoffLng", String(dropoff.lng));
-          params.set("dropoffAddress", dropoff.address);
-        }
-        if (filters.type !== "all") params.set("type", filters.type);
-        if (filters.womenOnly) params.set("womenOnly", "true");
-        params.set("sortBy", filters.sortBy);
-        const res = await api.get(`${API.rides.available}?${params.toString()}`);
-        return (Array.isArray(res.data) ? res.data : []) as RideOption[];
-      } catch {
-        return [];
-      }
-    },
-  });
-
-  const filteredRides = rides.filter((ride) => {
-    if (filters.type === "carpool" && ride.type !== "carpool") return false;
-    if (filters.type === "professional" && ride.type !== "professional") return false;
-    return true;
+    queryFn: () => fetchAvailableRides({ pickup, dropoff, filters }),
   });
 
   return (
@@ -111,14 +69,14 @@ export default function RideOptionsPage() {
             <div key={i} className="h-40 animate-pulse rounded-2xl bg-white/5" />
           ))}
         </div>
-      ) : filteredRides.length > 0 ? (
+      ) : rides.length > 0 ? (
         <div className="space-y-3">
-          {filteredRides.map((ride) => (
+          {rides.map((ride) => (
             <div
               key={ride.id}
               className={cn(
                 "rounded-2xl border bg-[#0a0a0a] p-4 transition-all duration-200",
-                selectedRide === ride.id
+                selectedId === ride.id
                   ? "border-white bg-white/5"
                   : "border-white/10 hover:border-white/20"
               )}
@@ -136,9 +94,12 @@ export default function RideOptionsPage() {
                     </div>
                   </div>
                 </div>
-                <Badge variant={ride.type === "carpool" ? "carpool" : "pro"}>
-                  {ride.type === "carpool" ? "Carpool" : "Pro"}
-                </Badge>
+                <div className="flex shrink-0 items-center gap-2">
+                  {ride.womenOnly && <Badge variant="women">Women</Badge>}
+                  <Badge variant={ride.type === "carpool" ? "carpool" : "pro"}>
+                    {ride.type === "carpool" ? "Carpool" : "Pro"}
+                  </Badge>
+                </div>
               </div>
 
               {ride.vehicle && (
@@ -160,7 +121,8 @@ export default function RideOptionsPage() {
                 <Button
                   size="sm"
                   onClick={() => {
-                    setSelectedRide(ride.id);
+                    setSelectedId(ride.id);
+                    setSelectedRide(ride);
                     router.push("/ride-now/confirm");
                   }}
                 >

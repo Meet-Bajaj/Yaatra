@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/trust_badge.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/error_state.dart';
+import '../../../../core/widgets/skeleton.dart';
+import '../../models/trip.dart';
+import '../../providers/rides_providers.dart';
 
 class UpcomingRidesPage extends ConsumerStatefulWidget {
   const UpcomingRidesPage({super.key});
 
   @override
-  ConsumerState<UpcomingRidesPage> createState() => _UpcomingRidesPageState();
+  ConsumerState<UpcomingRidesPage> createState() =>
+      _UpcomingRidesPageState();
 }
 
 class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
@@ -37,73 +43,17 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedTab = 0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: _selectedTab == 0
-                                      ? AppColors.primary
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              'Upcoming',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _selectedTab == 0
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedTab = 1),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: _selectedTab == 1
-                                      ? AppColors.primary
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              'History',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _selectedTab == 1
-                                    ? AppColors.primary
-                                    : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      _buildTab(index: 0, label: 'Upcoming'),
+                      _buildTab(index: 1, label: 'History'),
                     ],
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: _selectedTab == 0 ? _buildUpcomingRides() : _buildRideHistory(),
+              child: _selectedTab == 0
+                  ? _buildUpcomingRides()
+                  : _buildRideHistory(),
             ),
           ],
         ),
@@ -111,65 +61,185 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
     );
   }
 
-  Widget _buildUpcomingRides() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: 2,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildRideCard(
-            driverName: 'Raj Kumar',
-            pickup: 'Koramangala',
-            drop: 'Whitefield',
-            time: 'Tomorrow, 9:00 AM',
-            fare: 120,
-            badgeType: 'carpool',
-            isUpcoming: true,
+  Widget _buildTab({required int index, required String label}) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? AppColors.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
-        );
-      },
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isSelected
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingRides() {
+    final ridesAsync = ref.watch(upcomingRidesProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(upcomingRidesProvider),
+      child: ridesAsync.when(
+        data: (data) {
+          if (data.trips.isEmpty && data.bookings.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 60),
+                EmptyState(
+                  icon: Icons.event_available_outlined,
+                  title: 'No upcoming rides',
+                  subtitle: 'Book a ride and it will show up here.',
+                  actionText: 'Find a Ride',
+                  onAction: () => context.push('/ride-now'),
+                ),
+              ],
+            );
+          }
+          return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            itemCount: data.trips.length + data.bookings.length,
+            itemBuilder: (context, index) {
+              if (index < data.trips.length) {
+                final trip = data.trips[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildTripCard(trip, isUpcoming: true),
+                );
+              }
+              final booking = data.bookings[index - data.trips.length];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildBookingCard(booking, isUpcoming: true),
+              );
+            },
+          );
+        },
+        loading: () => ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: 4,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SkeletonLoader.card(),
+          ),
+        ),
+        error: (error, stackTrace) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 60),
+            ErrorState(
+              title: 'Could not load rides',
+              subtitle: 'Pull to refresh and try again.',
+              actionText: 'Retry',
+              onAction: () => ref.invalidate(upcomingRidesProvider),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildRideHistory() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: 5,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildRideCard(
-            driverName: index % 2 == 0 ? 'Vikram Singh' : 'Priya Sharma',
-            pickup: 'Koramangala',
-            drop: 'Whitefield',
-            time: '${index + 1} days ago',
-            fare: 120 + index * 20,
-            badgeType: index % 2 == 0 ? 'professional' : 'women_only',
-            isUpcoming: false,
+    final historyAsync = ref.watch(rideHistoryProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(rideHistoryProvider),
+      child: historyAsync.when(
+        data: (data) {
+          if (data.trips.isEmpty && data.bookings.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 60),
+                const EmptyState(
+                  icon: Icons.history,
+                  title: 'No ride history yet',
+                  subtitle: 'Your completed and cancelled rides appear here.',
+                ),
+              ],
+            );
+          }
+          return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            itemCount: data.trips.length + data.bookings.length,
+            itemBuilder: (context, index) {
+              if (index < data.trips.length) {
+                final trip = data.trips[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildTripCard(trip, isUpcoming: false),
+                );
+              }
+              final booking = data.bookings[index - data.trips.length];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildBookingCard(booking, isUpcoming: false),
+              );
+            },
+          );
+        },
+        loading: () => ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: 4,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SkeletonLoader.card(),
           ),
-        );
-      },
+        ),
+        error: (error, stackTrace) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 60),
+            ErrorState(
+              title: 'Could not load history',
+              subtitle: 'Pull to refresh and try again.',
+              actionText: 'Retry',
+              onAction: () => ref.invalidate(rideHistoryProvider),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildRideCard({
-    required String driverName,
-    required String pickup,
-    required String drop,
-    required String time,
-    required int fare,
-    required String badgeType,
-    required bool isUpcoming,
-  }) {
+  Widget _buildTripCard(Trip trip, {required bool isUpcoming}) {
+    final fare = trip.fareFinalNum > 0
+        ? trip.fareFinalNum
+        : trip.fareEstimateNum;
+    final when = trip.pickupTime ?? trip.createdAt;
+    final status = trip.status;
+
     return GestureDetector(
-      onTap: () => context.push('/rides/123'),
+      onTap: () => context.push('/rides/${trip.id}'),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.borderWhite10),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,8 +248,17 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.surfaceVariant,
-                  child: Icon(Icons.person, size: 20, color: AppColors.textHint),
+                  backgroundColor: AppColors.surfaceElevated,
+                  backgroundImage: trip.driver?['avatarUrl'] != null
+                      ? NetworkImage(trip.driver!['avatarUrl'] as String)
+                      : null,
+                  child: trip.driver?['avatarUrl'] == null
+                      ? const Icon(
+                          Icons.person,
+                          size: 20,
+                          color: AppColors.textMuted,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -188,34 +267,28 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            driverName,
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                          Flexible(
+                            child: Text(
+                              trip.driverName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          TrustBadge(
-                            label: badgeType == 'professional' ? 'Pro' : badgeType == 'women_only' ? 'Women' : 'Carpool',
-                            color: badgeType == 'professional'
-                                ? AppColors.proBadge
-                                : badgeType == 'women_only'
-                                    ? AppColors.womenOnlyBadge
-                                    : AppColors.carpoolBadge,
-                            icon: badgeType == 'professional'
-                                ? Icons.local_taxi
-                                : badgeType == 'women_only'
-                                    ? Icons.female
-                                    : Icons.people,
-                          ),
+                          _buildStatusChip(status),
                         ],
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        time,
-                        style: TextStyle(
+                        isUpcoming
+                            ? Formatters.rideDateTime(when)
+                            : Formatters.timeAgo(when),
+                        style: const TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -225,8 +298,8 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
                   ),
                 ),
                 Text(
-                  '₹$fare',
-                  style: TextStyle(
+                  Formatters.currency(fare),
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -236,44 +309,175 @@ class _UpcomingRidesPageState extends ConsumerState<UpcomingRidesPage> {
               ],
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.circle, size: 6, color: AppColors.success),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      pickup,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward, size: 12, color: AppColors.textHint),
-                  const SizedBox(width: 8),
-                  Icon(Icons.circle, size: 6, color: AppColors.error),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      drop,
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            _buildRouteBox(
+              pickup: trip.pickupAddress,
+              drop: trip.dropAddress,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(Booking booking, {required bool isUpcoming}) {
+    final instance = booking.instance;
+    final ride = instance?['ride'] as Map<String, dynamic>?;
+    final driverUser = ride?['driver']?['user'] as Map<String, dynamic>?;
+    final driverName = (driverUser?['name'] as String?) ?? 'Driver';
+    final when = DateTime.tryParse(
+          (instance?['departureTime'] as String?) ??
+              (instance?['date'] as String?) ??
+              '',
+        ) ??
+        booking.createdAt;
+    final pickup = (ride?['pickupAddress'] as String?) ?? '';
+    final drop = (ride?['dropAddress'] as String?) ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderWhite10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.surfaceElevated,
+                child: Icon(
+                  Icons.event_seat,
+                  size: 20,
+                  color: AppColors.carpoolBadge,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            driverName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(booking.bookingStatus),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${Formatters.rideDateTime(when)} • ${booking.seatCount} ${booking.seatCount == 1 ? 'seat' : 'seats'}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                Formatters.currency(booking.fareTotalNum),
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildRouteBox(pickup: pickup, drop: drop),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteBox({required String pickup, required String drop}) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.circle, size: 6, color: AppColors.success),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              pickup.isEmpty ? 'Pickup not set' : pickup,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.arrow_forward,
+            size: 12,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.circle, size: 6, color: AppColors.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              drop.isEmpty ? 'Drop not set' : drop,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    final color = switch (status) {
+      'COMPLETED' || 'CONFIRMED' => AppColors.success,
+      'CANCELLED' => AppColors.error,
+      'PENDING' || 'SEARCHING' || 'DRIVER_ASSIGNED' || 'ARRIVING' =>
+        AppColors.warning,
+      'IN_PROGRESS' => AppColors.info,
+      _ => AppColors.textSecondary,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        status.replaceAll('_', ' '),
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );

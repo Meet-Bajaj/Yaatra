@@ -122,12 +122,12 @@ class DriverCard extends StatelessWidget {
   Widget _buildAvatar() {
     return CircleAvatar(
       radius: 28,
-      backgroundColor: AppColors.surfaceVariant,
+      backgroundColor: AppColors.surfaceElevated,
       backgroundImage: photoUrl != null
           ? CachedNetworkImageProvider(photoUrl!)
           : null,
       child: photoUrl == null
-          ? Icon(Icons.person, size: 28, color: AppColors.textHint)
+          ? Icon(Icons.person, size: 28, color: AppColors.textMuted)
           : null,
     );
   }

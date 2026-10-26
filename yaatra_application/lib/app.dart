@@ -13,9 +13,8 @@ class YaatraApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Yaatra',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.light,
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       routerConfig: router,
     );
   }

@@ -27,7 +27,7 @@ class ChipFilter extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? (selectedColor ?? AppColors.primary)
-              : AppColors.surfaceVariant,
+              : AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected

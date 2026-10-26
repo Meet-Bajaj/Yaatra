@@ -53,12 +53,12 @@ class RideOptionCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundColor: AppColors.surfaceElevated,
                   backgroundImage: driverPhoto != null
                       ? NetworkImage(driverPhoto!)
                       : null,
                   child: driverPhoto == null
-                      ? Icon(Icons.person, size: 20, color: AppColors.textHint)
+                      ? Icon(Icons.person, size: 20, color: AppColors.textMuted)
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -128,7 +128,7 @@ class RideOptionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
+                color: AppColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -162,7 +162,7 @@ class RideOptionCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         border: Border(
                           left: BorderSide(
-                            color: AppColors.textHint,
+                            color: AppColors.textMuted,
                             width: 1,
                             style: BorderStyle.solid,
                           ),
@@ -176,7 +176,7 @@ class RideOptionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
+                color: AppColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(

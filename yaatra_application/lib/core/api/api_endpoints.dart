@@ -10,6 +10,10 @@ class ApiEndpoints {
   static const String authLogin = '/auth/login';
   static const String authProfile = '/auth/profile';
 
+  static const String usersMe = '/users/me';
+  static const String usersEmergencyContacts = '/users/me/emergency-contacts';
+  static const String usersPlaces = '/users/me/places';
+
   static const String ridesAvailable = '/rides/available';
   static const String ridesBook = '/rides/book';
   static const String ridesUpcoming = '/rides/upcoming';

@@ -34,7 +34,7 @@ class PrimaryButton extends StatelessWidget {
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            foregroundColor: foregroundColor ?? AppColors.primary,
+            foregroundColor: foregroundColor ?? AppColors.textPrimary,
           ),
           child: _buildChild(),
         ),
@@ -47,9 +47,10 @@ class PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
+          backgroundColor: backgroundColor ?? AppColors.primary,
+          foregroundColor: foregroundColor ?? AppColors.onPrimary,
           disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+          disabledForegroundColor: AppColors.onPrimary.withValues(alpha: 0.6),
         ),
         child: _buildChild(),
       ),
@@ -58,12 +59,14 @@ class PrimaryButton extends StatelessWidget {
 
   Widget _buildChild() {
     if (isLoading) {
-      return const SizedBox(
+      return SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(
+            foregroundColor ?? AppColors.onPrimary,
+          ),
         ),
       );
     }

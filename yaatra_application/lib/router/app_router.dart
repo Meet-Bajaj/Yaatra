@@ -17,6 +17,7 @@ import '../../features/driver/presentation/pages/offer_seat_page.dart';
 import '../../features/driver/presentation/pages/driver_offers_page.dart';
 import '../../features/driver/presentation/pages/go_online_page.dart';
 import '../../features/driver/presentation/pages/driver_earnings_page.dart';
+import '../../features/driver/presentation/pages/driver_requests_page.dart';
 import '../../features/rides/presentation/pages/upcoming_rides_page.dart';
 import '../../features/rides/presentation/pages/ride_history_page.dart';
 import '../../features/rides/presentation/pages/ride_detail_page.dart';
@@ -25,10 +26,24 @@ import '../../features/notifications/presentation/pages/notification_center_page
 import '../../features/safety/presentation/pages/safety_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
+import '../../features/admin/presentation/pages/admin_dashboard_page.dart';
+import '../../features/auth/providers/auth_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
+    redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      final isLoggedIn = authState == AuthState.authenticated;
+      final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/otp' ||
+          state.matchedLocation == '/role' ||
+          state.matchedLocation == '/profile-setup';
+
+      if (!isLoggedIn && !isAuthRoute) return '/login';
+      if (isLoggedIn && state.matchedLocation == '/login') return '/home';
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/login',
@@ -49,6 +64,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
+          // Rider routes
           GoRoute(
             path: '/home',
             builder: (context, state) => const HomePage(),
@@ -67,7 +83,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/active-trip/:id',
-            builder: (context, state) => const ActiveTripPage(),
+            builder: (context, state) => ActiveTripPage(
+              tripId: state.pathParameters['id'] ?? '',
+            ),
           ),
           GoRoute(
             path: '/plan-commute',
@@ -76,6 +94,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/plan-commute/matches',
             builder: (context, state) => const ScheduledMatchesPage(),
+          ),
+
+          // Driver routes
+          GoRoute(
+            path: '/driver/online',
+            builder: (context, state) => const GoOnlinePage(),
           ),
           GoRoute(
             path: '/driver/offer',
@@ -86,13 +110,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const DriverOffersPage(),
           ),
           GoRoute(
-            path: '/driver/online',
-            builder: (context, state) => const GoOnlinePage(),
-          ),
-          GoRoute(
             path: '/driver/earnings',
             builder: (context, state) => const DriverEarningsPage(),
           ),
+          GoRoute(
+            path: '/driver/requests',
+            builder: (context, state) => const DriverRequestsPage(),
+          ),
+
+          // Shared routes
           GoRoute(
             path: '/rides/upcoming',
             builder: (context, state) => const UpcomingRidesPage(),
@@ -103,7 +129,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/rides/:id',
-            builder: (context, state) => const RideDetailPage(),
+            builder: (context, state) => RideDetailPage(
+              tripId: state.pathParameters['id'] ?? '',
+            ),
           ),
           GoRoute(
             path: '/wallet',
@@ -125,68 +153,190 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             builder: (context, state) => const SettingsPage(),
           ),
+
+          // Admin routes
+          GoRoute(
+            path: '/admin',
+            builder: (context, state) => const AdminDashboardPage(),
+          ),
         ],
       ),
     ],
   );
 });
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProvider);
+    final user = userAsync.valueOrNull;
+    final isDriver = user?.isDriver ?? false;
+    final isAdmin = user?.isAdmin ?? false;
+
     return Scaffold(
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _getCurrentIndex(context),
-        onTap: (index) => _onTap(context, index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_car_outlined),
-            activeIcon: Icon(Icons.directions_car),
-            label: 'Rides',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            activeIcon: Icon(Icons.account_balance_wallet),
-            label: 'Wallet',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
-            activeIcon: Icon(Icons.notifications),
-            label: 'Notifications',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outlined),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        onTap: (index) => _onTap(context, index, isDriver: isDriver, isAdmin: isAdmin),
+        items: _getNavItems(isDriver: isDriver, isAdmin: isAdmin),
       ),
     );
   }
 
+  List<BottomNavigationBarItem> _getNavItems({
+    required bool isDriver,
+    required bool isAdmin,
+  }) {
+    if (isAdmin) {
+      return const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard_outlined),
+          activeIcon: Icon(Icons.dashboard),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.people_outlined),
+          activeIcon: Icon(Icons.people),
+          label: 'Users',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
+          label: 'Alerts',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outlined),
+          activeIcon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+      ];
+    }
+
+    if (isDriver) {
+      return const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.drive_eta_outlined),
+          activeIcon: Icon(Icons.drive_eta),
+          label: 'Drive',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.account_balance_wallet_outlined),
+          activeIcon: Icon(Icons.account_balance_wallet),
+          label: 'Earnings',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
+          label: 'Alerts',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outlined),
+          activeIcon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+      ];
+    }
+
+    // Rider tabs
+    return const [
+      BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: 'Home',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.directions_car_outlined),
+        activeIcon: Icon(Icons.directions_car),
+        label: 'Rides',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.account_balance_wallet_outlined),
+        activeIcon: Icon(Icons.account_balance_wallet),
+        label: 'Wallet',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.notifications_outlined),
+        activeIcon: Icon(Icons.notifications),
+        label: 'Alerts',
+      ),
+      BottomNavigationBarItem(
+        icon: Icon(Icons.person_outlined),
+        activeIcon: Icon(Icons.person),
+        label: 'Profile',
+      ),
+    ];
+  }
+
   int _getCurrentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/home')) return 0;
-    if (location.startsWith('/rides') || location.startsWith('/ride-now') ||
-        location.startsWith('/plan-commute') || location.startsWith('/active-trip')) {
+    if (location.startsWith('/home') || location.startsWith('/admin')) return 0;
+    if (location.startsWith('/driver/online') ||
+        location.startsWith('/driver/offer') ||
+        location.startsWith('/driver/offers') ||
+        location.startsWith('/driver/requests')) {
       return 1;
     }
-    if (location.startsWith('/wallet')) return 2;
+    if (location.startsWith('/rides') ||
+        location.startsWith('/ride-now') ||
+        location.startsWith('/plan-commute') ||
+        location.startsWith('/active-trip')) {
+      return 1;
+    }
+    if (location.startsWith('/wallet') || location.startsWith('/driver/earnings')) return 2;
     if (location.startsWith('/notifications')) return 3;
-    if (location.startsWith('/profile') || location.startsWith('/settings')) return 4;
+    if (location.startsWith('/profile') || location.startsWith('/settings') || location.startsWith('/safety')) return 4;
     return 0;
   }
 
-  void _onTap(BuildContext context, int index) {
+  void _onTap(BuildContext context, int index, {required bool isDriver, required bool isAdmin}) {
+    if (isAdmin) {
+      switch (index) {
+        case 0:
+          context.go('/admin');
+          break;
+        case 1:
+          context.go('/admin');
+          break;
+        case 2:
+          context.go('/notifications');
+          break;
+        case 3:
+          context.go('/profile');
+          break;
+      }
+      return;
+    }
+
+    if (isDriver) {
+      switch (index) {
+        case 0:
+          context.go('/home');
+          break;
+        case 1:
+          context.go('/driver/online');
+          break;
+        case 2:
+          context.go('/driver/earnings');
+          break;
+        case 3:
+          context.go('/notifications');
+          break;
+        case 4:
+          context.go('/profile');
+          break;
+      }
+      return;
+    }
+
+    // Rider
     switch (index) {
       case 0:
         context.go('/home');

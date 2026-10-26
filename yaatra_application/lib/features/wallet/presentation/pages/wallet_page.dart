@@ -1,40 +1,180 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/primary_button.dart';
+import '../../data/wallet_repository.dart';
+import '../../providers/wallet_providers.dart';
 
-class WalletPage extends ConsumerStatefulWidget {
+class WalletPage extends ConsumerWidget {
   const WalletPage({super.key});
 
   @override
-  ConsumerState<WalletPage> createState() => _WalletPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final walletAsync = ref.watch(walletProvider);
+    final transactionsAsync = ref.watch(walletTransactionsProvider);
 
-class _WalletPageState extends ConsumerState<WalletPage> {
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      appBar: AppBar(title: const Text('Wallet')),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(walletProvider);
+          ref.invalidate(walletTransactionsProvider);
+        },
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Wallet',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+              // Balance card
+              walletAsync.when(
+                data: (wallet) => Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.1),
+                        AppColors.primary.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderWhite10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Wallet Balance',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '₹${wallet.balance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddMoneySheet(context, ref),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Money'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.onPrimary,
+                                minimumSize: const Size(0, 44),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(Icons.arrow_upward, size: 18),
+                              label: const Text('Withdraw'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textPrimary,
+                                minimumSize: const Size(0, 44),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
+                error: (e, _) => Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderWhite10),
+                  ),
+                  child: Center(
+                    child: Text('Error loading wallet', style: const TextStyle(color: AppColors.textSecondary)),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
-              _buildBalanceCard(),
-              const SizedBox(height: 20),
-              _buildQuickActions(),
-              const SizedBox(height: 20),
-              _buildRecentTransactions(),
+
+              // Payment methods
+              const Text(
+                'Payment Methods',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _buildPaymentMethod(Icons.account_balance, 'UPI'),
+                  const SizedBox(width: 12),
+                  _buildPaymentMethod(Icons.credit_card, 'Card'),
+                  const SizedBox(width: 12),
+                  _buildPaymentMethod(Icons.account_balance_outlined, 'Bank'),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Transactions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent Transactions',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text('View All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              transactionsAsync.when(
+                data: (transactions) {
+                  if (transactions.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.borderWhite10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No transactions yet',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: transactions.map((txn) => _buildTransaction(txn)).toList(),
+                  );
+                },
+                loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
+                error: (e, _) => const SizedBox(),
+              ),
             ],
           ),
         ),
@@ -42,118 +182,24 @@ class _WalletPageState extends ConsumerState<WalletPage> {
     );
   }
 
-  Widget _buildBalanceCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Available Balance',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 14,
-              color: Colors.white70,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '₹500',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 36,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          PrimaryButton(
-            text: 'Add Money',
-            onPressed: () {},
-            backgroundColor: Colors.white,
-            foregroundColor: AppColors.primary,
-            width: 160,
-            height: 44,
-            icon: Icons.add,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.phone_android,
-            title: 'UPI',
-            subtitle: 'GPay, PhonePe',
-            onTap: () {},
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.credit_card,
-            title: 'Card',
-            subtitle: 'Visa, Mastercard',
-            onTap: () {},
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildActionCard(
-            icon: Icons.account_balance,
-            title: 'Bank',
-            subtitle: 'Transfer',
-            onTap: () {},
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
+  Widget _buildPaymentMethod(IconData icon, String label) {
+    return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderWhite10),
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppColors.primary, size: 24),
+            Icon(icon, color: AppColors.textPrimary, size: 24),
             const SizedBox(height: 8),
             Text(
-              title,
-              style: TextStyle(
+              label,
+              style: const TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 11,
+                fontSize: 12,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -163,63 +209,15 @@ class _WalletPageState extends ConsumerState<WalletPage> {
     );
   }
 
-  Widget _buildRecentTransactions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent Transactions',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            TextButton(
-              onPressed: () {},
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        _buildTransactionItem(
-          title: 'Ride Payment',
-          amount: '-₹120',
-          time: 'Today, 2:30 PM',
-          isCredit: false,
-        ),
-        _buildTransactionItem(
-          title: 'Wallet Top-up',
-          amount: '+₹500',
-          time: 'Yesterday',
-          isCredit: true,
-        ),
-        _buildTransactionItem(
-          title: 'Ride Payment',
-          amount: '-₹180',
-          time: '2 days ago',
-          isCredit: false,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTransactionItem({
-    required String title,
-    required String amount,
-    required String time,
-    required bool isCredit,
-  }) {
+  Widget _buildTransaction(dynamic txn) {
+    final isCredit = txn.isCredit as bool;
     return Container(
-      padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderWhite10),
       ),
       child: Row(
         children: [
@@ -227,9 +225,7 @@ class _WalletPageState extends ConsumerState<WalletPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: isCredit
-                  ? AppColors.success.withValues(alpha: 0.1)
-                  : AppColors.error.withValues(alpha: 0.1),
+              color: (isCredit ? AppColors.success : AppColors.error).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -244,8 +240,8 @@ class _WalletPageState extends ConsumerState<WalletPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: TextStyle(
+                  txn.type,
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -253,8 +249,8 @@ class _WalletPageState extends ConsumerState<WalletPage> {
                   ),
                 ),
                 Text(
-                  time,
-                  style: TextStyle(
+                  '${txn.createdAt.day}/${txn.createdAt.month}/${txn.createdAt.year}',
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -264,15 +260,72 @@ class _WalletPageState extends ConsumerState<WalletPage> {
             ),
           ),
           Text(
-            amount,
+            '${isCredit ? '+' : '-'}₹${txn.amount.toStringAsFixed(2)}',
             style: TextStyle(
               fontFamily: 'Poppins',
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
               color: isCredit ? AppColors.success : AppColors.error,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showAddMoneySheet(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Add Money',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Amount (₹)',
+                prefixText: '₹ ',
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final amount = double.tryParse(controller.text);
+                  if (amount != null && amount > 0) {
+                    await ref.read(walletRepositoryProvider).topUp(amount);
+                    ref.invalidate(walletProvider);
+                    ref.invalidate(walletTransactionsProvider);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Add Money'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

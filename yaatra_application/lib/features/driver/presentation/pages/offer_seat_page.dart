@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/text_field.dart';
 import '../../../../core/utils/validators.dart';
+import '../../data/driver_repository.dart';
+import '../../providers/driver_providers.dart';
 
 class OfferSeatPage extends ConsumerStatefulWidget {
   const OfferSeatPage({super.key});
@@ -23,6 +26,17 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
   double _pricePerSeat = 100;
   bool _womenOnly = false;
   bool _isLoading = false;
+  String? _selectedVehicleId;
+
+  static const List<String> _dayNames = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
 
   @override
   void dispose() {
@@ -66,7 +80,7 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
                         ),
                         Text(
                           'Step ${_currentStep + 1} of 4',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -82,8 +96,10 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: LinearProgressIndicator(
                 value: (_currentStep + 1) / 4,
-                backgroundColor: AppColors.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                backgroundColor: AppColors.surfaceElevated,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.primary,
+                ),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -195,22 +211,22 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AppColors.borderWhite10),
             ),
             child: Row(
               children: [
-                Icon(Icons.access_time, color: AppColors.primary),
+                const Icon(Icons.access_time, color: AppColors.primary),
                 const SizedBox(width: 12),
                 Text(
                   'Departure: ${_departureTime.hour.toString().padLeft(2, '0')}:${_departureTime.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 16,
                     color: AppColors.textPrimary,
                   ),
                 ),
                 const Spacer(),
-                Icon(Icons.edit, color: AppColors.textHint),
+                const Icon(Icons.edit, color: AppColors.textMuted),
               ],
             ),
           ),
@@ -229,7 +245,7 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(7, (index) {
-            final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+            const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
             final isSelected = _selectedDays[index];
             return GestureDetector(
               onTap: () {
@@ -241,10 +257,14 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surfaceVariant,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.surfaceElevated,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border,
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.borderWhite10,
                   ),
                 ),
                 child: Center(
@@ -254,7 +274,9 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
                       fontFamily: 'Poppins',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                      color: isSelected
+                          ? AppColors.onPrimary
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -301,7 +323,7 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
             const SizedBox(width: 32),
             Text(
               '$_seats',
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 48,
                 fontWeight: FontWeight.w700,
@@ -369,7 +391,7 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
         Center(
           child: Text(
             '₹${_pricePerSeat.round()}',
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: 'Poppins',
               fontSize: 48,
               fontWeight: FontWeight.w700,
@@ -395,12 +417,16 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+              const Icon(
+                Icons.info_outline,
+                color: AppColors.primary,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Total earnings: ₹${(_pricePerSeat * _seats).round()} ($_seats seats × ₹${_pricePerSeat.round()})',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 14,
                     color: AppColors.primary,
@@ -408,6 +434,137 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _buildVehicleSection(),
+      ],
+    );
+  }
+
+  Widget _buildVehicleSection() {
+    final profileAsync = ref.watch(driverProfileProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vehicle',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        profileAsync.when(
+          data: (profile) {
+            if (profile.vehicles.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderWhite10),
+                ),
+                child: const Text(
+                  'No vehicles on your profile. Add a vehicle before publishing a ride.',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              );
+            }
+            final selectedId = _selectedVehicleId ??
+                (profile.vehicles.isNotEmpty
+                    ? profile.vehicles.first.id
+                    : null);
+            return Column(
+              children: profile.vehicles.map((vehicle) {
+                final isSelected = selectedId == vehicle.id;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _selectedVehicleId = vehicle.id),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.05)
+                            : AppColors.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.borderWhite10,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.directions_car,
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vehicle.displayName.trim(),
+                                  style: TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  vehicle.licensePlate,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (error, stackTrace) => Text(
+            'Could not load your vehicles: $error',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 12,
+              color: AppColors.error,
+            ),
           ),
         ),
       ],
@@ -424,7 +581,7 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: Colors.white),
+        child: Icon(icon, color: AppColors.onPrimary),
       ),
     );
   }
@@ -440,20 +597,108 @@ class _OfferSeatPageState extends ConsumerState<OfferSeatPage> {
   }
 
   void _nextStep() {
+    if (_currentStep == 0 &&
+        (_homeController.text.trim().isEmpty ||
+            _officeController.text.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both home and work addresses'),
+        ),
+      );
+      return;
+    }
+    if (_currentStep == 1 && !_selectedDays.contains(true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one day')),
+      );
+      return;
+    }
     if (_currentStep < 3) {
       setState(() => _currentStep++);
     }
   }
 
   Future<void> _publishRide() async {
+    final home = _homeController.text.trim();
+    final office = _officeController.text.trim();
+    if (home.isEmpty || office.isEmpty) {
+      setState(() => _currentStep = 0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your home and work addresses')),
+      );
+      return;
+    }
+    if (!_selectedDays.contains(true)) {
+      setState(() => _currentStep = 1);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one day')),
+      );
+      return;
+    }
+
+    final profile = ref.read(driverProfileProvider).valueOrNull;
+    final vehicleId = _selectedVehicleId ??
+        (profile != null && profile.vehicles.isNotEmpty
+            ? profile.vehicles.first.id
+            : null);
+    if (vehicleId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a vehicle to publish this ride')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
+    try {
+      final pickupLocations = await locationFromAddress(home);
+      final dropLocations = await locationFromAddress(office);
+      if (pickupLocations.isEmpty || dropLocations.isEmpty) {
+        throw Exception('Address not found');
+      }
+
+      final departureTime =
+          '${_departureTime.hour.toString().padLeft(2, '0')}:${_departureTime.minute.toString().padLeft(2, '0')}';
+      final schedule = [
+        for (var i = 0; i < 7; i++)
+          if (_selectedDays[i])
+            {'day': _dayNames[i], 'departureTime': departureTime},
+      ];
+
+      await ref.read(driverRepositoryProvider).createOffer(
+            pickup: {
+              'lat': pickupLocations.first.latitude,
+              'lng': pickupLocations.first.longitude,
+              'address': home,
+            },
+            drop: {
+              'lat': dropLocations.first.latitude,
+              'lng': dropLocations.first.longitude,
+              'address': office,
+            },
+            schedule: schedule,
+            seats: _seats,
+            pricePerSeat: _pricePerSeat.roundToDouble(),
+            womenOnly: _womenOnly,
+            vehicleId: vehicleId,
+          );
+
+      ref.invalidate(driverOffersProvider);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ride published successfully!')),
       );
-      context.go('/home');
+      context.go('/driver/offers');
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not publish the ride. Check the addresses and try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    setState(() => _isLoading = false);
   }
 }

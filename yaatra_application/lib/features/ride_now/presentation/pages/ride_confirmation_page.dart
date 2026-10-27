@@ -2,21 +2,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../rides/providers/rides_providers.dart';
+import '../../../wallet/models/wallet_model.dart';
+import '../../../wallet/providers/wallet_providers.dart';
+import '../../data/ride_repository.dart';
+import '../../models/ride_option.dart';
+import '../../providers/ride_providers.dart';
 
 class RideConfirmationPage extends ConsumerStatefulWidget {
-  const RideConfirmationPage({super.key});
+  const RideConfirmationPage({super.key, this.option});
+
+  final RideOption? option;
 
   @override
-  ConsumerState<RideConfirmationPage> createState() => _RideConfirmationPageState();
+  ConsumerState<RideConfirmationPage> createState() =>
+      _RideConfirmationPageState();
 }
 
 class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
   String _selectedPayment = 'wallet';
+  int _seats = 1;
   bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
+    final option = widget.option ?? ref.watch(selectedRideOptionProvider);
+
+    if (option == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(context, 'Confirm Ride'),
+              Expanded(
+                child: EmptyState(
+                  icon: Icons.directions_car_outlined,
+                  title: 'No ride selected',
+                  subtitle: 'Pick a ride option to continue with booking.',
+                  actionText: 'Find a Ride',
+                  onAction: () => context.go('/ride-now'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final params = ref.watch(rideSearchParamsProvider);
+    final pickupAddress = (params['pickupAddress'] as String?) ?? '';
+    final dropAddress = (params['dropAddress'] as String?) ?? '';
+    final pickupLat = (params['pickupLat'] as num?)?.toDouble();
+    final pickupLng = (params['pickupLng'] as num?)?.toDouble();
+    final dropLat = (params['dropLat'] as num?)?.toDouble();
+    final dropLng = (params['dropLng'] as num?)?.toDouble();
+    final isScheduled = option.type == 'SCHEDULED';
+    final maxSeats = option.availableSeats ?? 1;
+    final seats = isScheduled ? _seats.clamp(1, maxSeats) : 1;
+    final farePerSeat = option.estimatedFare ?? option.pricePerSeat ?? 0;
+    final total = isScheduled ? farePerSeat * seats : farePerSeat;
+    final walletAsync = ref.watch(walletProvider);
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -27,31 +76,32 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios),
-                          onPressed: () => context.pop(),
-                        ),
-                        const Text(
-                          'Confirm Ride',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildHeader(context, 'Confirm Ride'),
                     const SizedBox(height: 24),
-                    _buildRouteCard(),
+                    _buildRouteCard(
+                      pickupAddress: pickupAddress,
+                      dropAddress: dropAddress,
+                      departureTime: option.schedule?.departureTime,
+                      distanceKm: option.distanceKm,
+                    ),
                     const SizedBox(height: 20),
-                    _buildDriverInfo(),
+                    if (option.driver != null) ...[
+                      _buildDriverInfo(option),
+                      const SizedBox(height: 20),
+                    ],
+                    _buildFareBreakdown(
+                      option: option,
+                      isScheduled: isScheduled,
+                      seats: seats,
+                      farePerSeat: farePerSeat,
+                      total: total,
+                      onChangedSeats: isScheduled && maxSeats > 1
+                          ? (value) => setState(() => _seats = value)
+                          : null,
+                      maxSeats: maxSeats,
+                    ),
                     const SizedBox(height: 20),
-                    _buildFareBreakdown(),
-                    const SizedBox(height: 20),
-                    _buildPaymentMethod(),
+                    _buildPaymentMethod(walletAsync),
                     const SizedBox(height: 20),
                     _buildCancellationPolicy(),
                   ],
@@ -61,8 +111,17 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             Padding(
               padding: const EdgeInsets.all(20),
               child: PrimaryButton(
-                text: 'Confirm Booking - ₹120',
-                onPressed: _confirmBooking,
+                text: 'Confirm Booking - ${Formatters.currency(total)}',
+                onPressed: () => _confirmBooking(
+                  option: option,
+                  seats: seats,
+                  pickupLat: pickupLat,
+                  pickupLng: pickupLng,
+                  dropLat: dropLat,
+                  dropLng: dropLng,
+                  pickupAddress: pickupAddress,
+                  dropAddress: dropAddress,
+                ),
                 isLoading: _isLoading,
                 icon: Icons.check_circle,
               ),
@@ -73,32 +132,57 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
     );
   }
 
-  Widget _buildRouteCard() {
+  Widget _buildHeader(BuildContext context, String title) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => context.pop(),
+        ),
+        Text(
+          title,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteCard({
+    required String pickupAddress,
+    required String dropAddress,
+    required DateTime? departureTime,
+    required double? distanceKm,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderWhite10),
       ),
       child: Column(
         children: [
           _buildRoutePoint(
-            icon: Icons.circle,
             iconColor: AppColors.success,
             label: 'Pickup',
-            address: 'Koramangala, Block 4',
-            time: '2:30 PM',
+            address: pickupAddress.isEmpty ? 'Pickup location' : pickupAddress,
+            time: departureTime != null
+                ? Formatters.rideTime(departureTime)
+                : 'ASAP',
           ),
           const SizedBox(height: 12),
-          _buildRouteLine(),
+          _buildRouteLine(distanceKm: distanceKm),
           const SizedBox(height: 12),
           _buildRoutePoint(
-            icon: Icons.circle,
             iconColor: AppColors.error,
             label: 'Drop',
-            address: 'Whitefield Main Road',
-            time: '3:15 PM',
+            address: dropAddress.isEmpty ? 'Drop location' : dropAddress,
+            time: distanceKm != null ? Formatters.distance(distanceKm) : '',
           ),
         ],
       ),
@@ -106,7 +190,6 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
   }
 
   Widget _buildRoutePoint({
-    required IconData icon,
     required Color iconColor,
     required String label,
     required String address,
@@ -114,7 +197,7 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
   }) {
     return Row(
       children: [
-        Icon(icon, size: 12, color: iconColor),
+        Icon(Icons.circle, size: 12, color: iconColor),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -122,7 +205,7 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -130,7 +213,7 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
               ),
               Text(
                 address,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
@@ -140,26 +223,27 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             ],
           ),
         ),
-        Text(
-          time,
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 12,
-            color: AppColors.textSecondary,
+        if (time.isNotEmpty)
+          Text(
+            time,
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _buildRouteLine() {
+  Widget _buildRouteLine({required double? distanceKm}) {
     return Row(
       children: [
         const SizedBox(width: 5),
         Container(
           width: 2,
           height: 30,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -173,14 +257,17 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             height: 1,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.success.withValues(alpha: 0.5), AppColors.error.withValues(alpha: 0.5)],
+                colors: [
+                  AppColors.success.withValues(alpha: 0.5),
+                  AppColors.error.withValues(alpha: 0.5),
+                ],
               ),
             ),
           ),
         ),
         const SizedBox(width: 8),
         Text(
-          '45 min • 15 km',
+          distanceKm != null ? Formatters.distance(distanceKm) : 'Route',
           style: TextStyle(
             fontFamily: 'Poppins',
             fontSize: 11,
@@ -191,29 +278,36 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
     );
   }
 
-  Widget _buildDriverInfo() {
+  Widget _buildDriverInfo(RideOption option) {
+    final driver = option.driver!;
+    final vehicle = option.vehicle;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderWhite10),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.surfaceVariant,
-            child: Icon(Icons.person, size: 28, color: AppColors.textHint),
+            backgroundColor: AppColors.surfaceElevated,
+            backgroundImage: driver.avatarUrl != null
+                ? NetworkImage(driver.avatarUrl!)
+                : null,
+            child: driver.avatarUrl == null
+                ? const Icon(Icons.person, size: 28, color: AppColors.textMuted)
+                : null,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Raj Kumar',
-                  style: TextStyle(
+                Text(
+                  driver.name.isEmpty ? 'Driver' : driver.name,
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -223,11 +317,11 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.star, size: 14, color: AppColors.warning),
+                    const Icon(Icons.star, size: 14, color: AppColors.warning),
                     const SizedBox(width: 4),
-                    const Text(
-                      '4.8',
-                      style: TextStyle(
+                    Text(
+                      driver.rating.toStringAsFixed(1),
+                      style: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -236,14 +330,21 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.carpoolBadge.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'Carpool',
-                        style: TextStyle(
+                      child: Text(
+                        option.womenOnly
+                            ? 'Women Only'
+                            : option.type == 'SCHEDULED'
+                                ? 'Carpool'
+                                : 'Professional',
+                        style: const TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -256,26 +357,36 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
               ],
             ),
           ),
-          const Text(
-            'KA 01 AB 1234',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontSize: 12,
-              color: AppColors.textSecondary,
+          if (vehicle?.licensePlate != null &&
+              vehicle!.licensePlate!.isNotEmpty)
+            Text(
+              vehicle.licensePlate!,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildFareBreakdown() {
+  Widget _buildFareBreakdown({
+    required RideOption option,
+    required bool isScheduled,
+    required int seats,
+    required double farePerSeat,
+    required double total,
+    required ValueChanged<int>? onChangedSeats,
+    required int maxSeats,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderWhite10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,12 +401,86 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildFareRow('Base fare', '₹80'),
-          _buildFareRow('Distance (15 km × ₹2.5)', '₹37.5'),
-          _buildFareRow('Service fee', '₹2.5'),
+          _buildFareRow(
+            isScheduled ? 'Price per seat' : 'Estimated fare',
+            Formatters.currency(farePerSeat),
+          ),
+          if (option.distanceKm != null)
+            _buildFareRow('Distance', Formatters.distance(option.distanceKm!)),
+          if (onChangedSeats != null)
+            _buildSeatRow(seats: seats, maxSeats: maxSeats, onChanged: onChangedSeats)
+          else if (isScheduled)
+            _buildFareRow('Seats', '$seats'),
           const Divider(height: 24),
-          _buildFareRow('Total', '₹120', isTotal: true),
+          _buildFareRow('Total', Formatters.currency(total), isTotal: true),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSeatRow({
+    required int seats,
+    required int maxSeats,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Seats',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Row(
+            children: [
+              _buildSeatButton(
+                icon: Icons.remove,
+                onTap: seats > 1 ? () => onChanged(seats - 1) : null,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '$seats',
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _buildSeatButton(
+                icon: Icons.add,
+                onTap: seats < maxSeats ? () => onChanged(seats + 1) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeatButton({required IconData icon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: onTap != null
+              ? AppColors.primary
+              : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: onTap != null ? AppColors.onPrimary : AppColors.textDisabled,
+        ),
       ),
     );
   }
@@ -312,7 +497,9 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
               fontFamily: 'Poppins',
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.w600 : FontWeight.w400,
-              color: isTotal ? AppColors.textPrimary : AppColors.textSecondary,
+              color: isTotal
+                  ? AppColors.textPrimary
+                  : AppColors.textSecondary,
             ),
           ),
           Text(
@@ -329,13 +516,13 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
     );
   }
 
-  Widget _buildPaymentMethod() {
+  Widget _buildPaymentMethod(AsyncValue<WalletData> walletAsync) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderWhite10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,7 +541,12 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
             id: 'wallet',
             icon: Icons.account_balance_wallet,
             title: 'Yaatra Wallet',
-            subtitle: 'Balance: ₹500',
+            subtitle: walletAsync.when(
+              data: (wallet) =>
+                  'Balance: ${Formatters.currency(wallet.balance)}',
+              loading: () => 'Balance: loading…',
+              error: (error, stackTrace) => 'Balance unavailable',
+            ),
           ),
           const SizedBox(height: 8),
           _buildPaymentOption(
@@ -387,15 +579,21 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.transparent,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.05)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
+            color: isSelected ? AppColors.primary : AppColors.borderWhite10,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? AppColors.primary : AppColors.textSecondary, size: 20),
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+              size: 20,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -407,12 +605,14 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
                       fontFamily: 'Poppins',
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -422,7 +622,11 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
               ),
             ),
             if (isSelected)
-              Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -439,11 +643,11 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: AppColors.warning, size: 20),
+          const Icon(Icons.info_outline, color: AppColors.warning, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Free cancellation up to 30 minutes before pickup. ₹50 fee after that.',
+              'Free cancellation up to 30 minutes before pickup. A fee may apply after that.',
               style: TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 12,
@@ -456,12 +660,70 @@ class _RideConfirmationPageState extends ConsumerState<RideConfirmationPage> {
     );
   }
 
-  Future<void> _confirmBooking() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      context.go('/active-trip/123');
+  Future<void> _confirmBooking({
+    required RideOption option,
+    required int seats,
+    required double? pickupLat,
+    required double? pickupLng,
+    required double? dropLat,
+    required double? dropLng,
+    required String pickupAddress,
+    required String dropAddress,
+  }) async {
+    if (pickupAddress.isEmpty || dropAddress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pickup and drop locations are missing. Search again.'),
+        ),
+      );
+      return;
     }
-    setState(() => _isLoading = false);
+    if (option.type == 'ON_DEMAND' &&
+        (pickupLat == null ||
+            pickupLng == null ||
+            dropLat == null ||
+            dropLng == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location details missing. Search for a ride again.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final data = await ref.read(rideRepositoryProvider).bookRide(
+            type: option.type,
+            instanceId: option.type == 'SCHEDULED' ? option.instanceId : null,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            dropLat: dropLat,
+            dropLng: dropLng,
+            seats: seats,
+            pickupAddress: pickupAddress,
+            dropAddress: dropAddress,
+            paymentMethod: _selectedPayment,
+          );
+      ref.invalidate(upcomingRidesProvider);
+      if (!mounted) return;
+      final tripId = data['id']?.toString();
+      if (option.type == 'SCHEDULED') {
+        context.go('/rides/upcoming');
+      } else if (tripId != null && tripId.isNotEmpty) {
+        context.go('/active-trip/$tripId');
+      } else {
+        context.go('/rides/upcoming');
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking failed. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

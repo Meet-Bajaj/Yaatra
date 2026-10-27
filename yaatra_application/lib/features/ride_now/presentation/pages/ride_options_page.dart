@@ -3,72 +3,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/chip_filter.dart';
+import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/ride_option_card.dart';
 import '../../../../core/widgets/skeleton.dart';
+import '../../models/ride_option.dart';
+import '../../providers/ride_providers.dart';
 
 class RideOptionsPage extends ConsumerStatefulWidget {
-  const RideOptionsPage({super.key});
+  const RideOptionsPage({super.key, this.searchParams});
+
+  final Map<String, dynamic>? searchParams;
 
   @override
   ConsumerState<RideOptionsPage> createState() => _RideOptionsPageState();
 }
 
 class _RideOptionsPageState extends ConsumerState<RideOptionsPage> {
-  String _selectedFilter = 'all';
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _options = [];
-
   @override
   void initState() {
     super.initState();
-    _loadRideOptions();
+    final params = widget.searchParams;
+    if (params != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(rideSearchParamsProvider.notifier).state = params;
+      });
+    }
   }
 
-  Future<void> _loadRideOptions() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() {
-      _isLoading = false;
-      _options = [
-        {
-          'driverName': 'Raj Kumar',
-          'rating': 4.8,
-          'badgeType': 'carpool',
-          'pickupAddress': 'Koramangala, Block 4',
-          'dropAddress': 'Whitefield Main Road',
-          'departureTime': DateTime.now().add(const Duration(minutes: 15)),
-          'fare': 120.0,
-          'seatsAvailable': 2,
-          'vehicleInfo': 'Maruti Swift Dzire • KA 01 AB 1234',
-        },
-        {
-          'driverName': 'Vikram Singh',
-          'rating': 4.6,
-          'badgeType': 'professional',
-          'pickupAddress': 'Koramangala, Block 4',
-          'dropAddress': 'Whitefield Main Road',
-          'departureTime': null,
-          'fare': 180.0,
-          'seatsAvailable': 3,
-          'vehicleInfo': 'Hyundai Verna • KA 02 CD 5678',
-        },
-        {
-          'driverName': 'Priya Sharma',
-          'rating': 4.9,
-          'badgeType': 'women_only',
-          'pickupAddress': 'Koramangala, Block 4',
-          'dropAddress': 'Whitefield Main Road',
-          'departureTime': DateTime.now().add(const Duration(minutes: 30)),
-          'fare': 110.0,
-          'seatsAvailable': 1,
-          'vehicleInfo': 'Honda City • KA 03 EF 9012',
-        },
-      ];
-    });
+  String get _selectedFilter {
+    final filter = ref.watch(rideSearchParamsProvider)['filter'] as String?;
+    switch (filter) {
+      case 'CARPOOL':
+        return 'carpool';
+      case 'PROFESSIONAL':
+        return 'professional';
+      case 'WOMEN_ONLY':
+        return 'women_only';
+      default:
+        return 'all';
+    }
   }
+
+  void _setFilter(String value) {
+    final current = ref.read(rideSearchParamsProvider);
+    ref.read(rideSearchParamsProvider.notifier).state = {
+      ...current,
+      'filter': switch (value) {
+        'carpool' => 'CARPOOL',
+        'professional' => 'PROFESSIONAL',
+        'women_only' => 'WOMEN_ONLY',
+        _ => 'ALL',
+      },
+    };
+  }
+
+  bool _hasCoordinates(Map<String, dynamic> params) =>
+      params['pickupLat'] != null &&
+      params['pickupLng'] != null &&
+      params['dropLat'] != null &&
+      params['dropLng'] != null;
 
   @override
   Widget build(BuildContext context) {
+    final params = ref.watch(rideSearchParamsProvider);
+    final filter = _selectedFilter;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -102,30 +102,30 @@ class _RideOptionsPageState extends ConsumerState<RideOptionsPage> {
                       children: [
                         ChipFilter(
                           label: 'All',
-                          isSelected: _selectedFilter == 'all',
-                          onTap: () => setState(() => _selectedFilter = 'all'),
+                          isSelected: filter == 'all',
+                          onTap: () => _setFilter('all'),
                         ),
                         const SizedBox(width: 8),
                         ChipFilter(
                           label: 'Carpool',
-                          isSelected: _selectedFilter == 'carpool',
-                          onTap: () => setState(() => _selectedFilter = 'carpool'),
+                          isSelected: filter == 'carpool',
+                          onTap: () => _setFilter('carpool'),
                           selectedColor: AppColors.carpoolBadge,
                           icon: Icons.people,
                         ),
                         const SizedBox(width: 8),
                         ChipFilter(
                           label: 'Professional',
-                          isSelected: _selectedFilter == 'professional',
-                          onTap: () => setState(() => _selectedFilter = 'professional'),
+                          isSelected: filter == 'professional',
+                          onTap: () => _setFilter('professional'),
                           selectedColor: AppColors.proBadge,
                           icon: Icons.local_taxi,
                         ),
                         const SizedBox(width: 8),
                         ChipFilter(
                           label: 'Women Only',
-                          isSelected: _selectedFilter == 'women_only',
-                          onTap: () => setState(() => _selectedFilter = 'women_only'),
+                          isSelected: filter == 'women_only',
+                          onTap: () => _setFilter('women_only'),
                           selectedColor: AppColors.womenOnlyBadge,
                           icon: Icons.female,
                         ),
@@ -136,50 +136,118 @@ class _RideOptionsPageState extends ConsumerState<RideOptionsPage> {
               ),
             ),
             Expanded(
-              child: _isLoading
-                  ? ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: 3,
-                      itemBuilder: (context, index) => SkeletonLoader.card(),
-                    )
-                  : _options.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No rides available',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 16,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _options.length,
-                          itemBuilder: (context, index) {
-                            final option = _options[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: RideOptionCard(
-                                driverName: option['driverName'],
-                                rating: option['rating'],
-                                badgeType: option['badgeType'],
-                                pickupAddress: option['pickupAddress'],
-                                dropAddress: option['dropAddress'],
-                                departureTime: option['departureTime'],
-                                fare: option['fare'],
-                                seatsAvailable: option['seatsAvailable'],
-                                vehicleInfo: option['vehicleInfo'],
-                                isRecommended: index == 0,
-                                onTap: () => context.push('/ride-now/confirm'),
-                              ),
-                            );
-                          },
-                        ),
+              child: !_hasCoordinates(params)
+                  ? _buildMissingSearchState(context)
+                  : _buildResults(context, params),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildMissingSearchState(BuildContext context) {
+    return EmptyState(
+      icon: Icons.search,
+      title: 'Search for a ride',
+      subtitle: 'Enter your pickup and drop locations to see available rides.',
+      actionText: 'Search Rides',
+      onAction: () => context.go('/ride-now'),
+    );
+  }
+
+  Widget _buildResults(BuildContext context, Map<String, dynamic> params) {
+    final resultAsync = ref.watch(rideSearchResultProvider(params));
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(rideSearchResultProvider(params)),
+      child: resultAsync.when(
+        data: (result) {
+          if (result.results.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                EmptyState(
+                  icon: Icons.directions_car_outlined,
+                  title: 'No rides available',
+                  subtitle:
+                      'We could not find rides for this route right now. Pull to refresh or try another filter.',
+                ),
+              ],
+            );
+          }
+          return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            itemCount: result.results.length,
+            itemBuilder: (context, index) {
+              final option = result.results[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: RideOptionCard(
+                  driverName:
+                      (option.driver?.name.isNotEmpty ?? false)
+                          ? option.driver!.name
+                          : 'Driver',
+                  driverPhoto: option.driver?.avatarUrl,
+                  rating: option.driver?.rating ?? 0,
+                  badgeType: _badgeType(option),
+                  pickupAddress: (params['pickupAddress'] as String?) ?? '',
+                  dropAddress: (params['dropAddress'] as String?) ?? '',
+                  departureTime: option.schedule?.departureTime,
+                  fare: option.estimatedFare ?? option.pricePerSeat ?? 0,
+                  seatsAvailable: option.availableSeats ?? 1,
+                  vehicleInfo: _vehicleInfo(option.vehicle),
+                  isRecommended: index == 0,
+                  onTap: () {
+                    ref.read(selectedRideOptionProvider.notifier).state =
+                        option;
+                    context.push('/ride-now/confirm');
+                  },
+                ),
+              );
+            },
+          );
+        },
+        loading: () => ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: 4,
+          itemBuilder: (context, index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SkeletonLoader.card(),
+          ),
+        ),
+        error: (error, stackTrace) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 60),
+            ErrorState(
+              title: 'Could not load rides',
+              subtitle: 'Check your connection and try again.',
+              actionText: 'Retry',
+              onAction: () => ref.invalidate(rideSearchResultProvider(params)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _badgeType(RideOption option) {
+    if (option.womenOnly) return 'women_only';
+    if (option.type == 'SCHEDULED') return 'carpool';
+    return 'professional';
+  }
+
+  String? _vehicleInfo(VehicleInfo? vehicle) {
+    if (vehicle == null) return null;
+    final parts = [
+      vehicle.displayName,
+      vehicle.licensePlate ?? '',
+    ].where((part) => part.trim().isNotEmpty);
+    final info = parts.join(' • ');
+    return info.isEmpty ? null : info;
   }
 }

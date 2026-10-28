@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/dio_client.dart';
 import '../../../core/api/api_endpoints.dart';
+import '../models/saved_place.dart';
 import '../models/user_model.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -49,5 +50,18 @@ class AuthRepository {
   Future<void> setRoles(List<String> roles) async {
     final dio = _ref.read(dioClientProvider).dio;
     await dio.post('/auth/roles', data: {'roles': roles});
+  }
+
+  Future<List<SavedPlace>> getSavedPlaces() async {
+    final dio = _ref.read(dioClientProvider).dio;
+    final response = await dio.get(ApiEndpoints.usersPlaces);
+    final data = response.data;
+    if (data is List) {
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(SavedPlace.fromJson)
+          .toList();
+    }
+    return [];
   }
 }

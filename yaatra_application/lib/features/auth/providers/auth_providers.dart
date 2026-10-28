@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
+import '../models/saved_place.dart';
 import '../models/user_model.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, otpSent, otpVerified }
@@ -80,4 +81,15 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
     }
   }
   return null;
+});
+
+final savedPlacesProvider = FutureProvider<List<SavedPlace>>((ref) async {
+  if (ref.watch(authProvider) != AuthState.authenticated) {
+    return const [];
+  }
+  try {
+    return await ref.read(authRepositoryProvider).getSavedPlaces();
+  } catch (e) {
+    return [];
+  }
 });

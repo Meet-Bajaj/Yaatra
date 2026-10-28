@@ -30,9 +30,13 @@ class UserModel {
       name: json['name'],
       email: json['email'],
       gender: json['gender'],
-      profilePhoto: json['profilePhoto'],
+      profilePhoto: json['profilePhoto'] ?? json['avatarUrl'],
       city: json['city'],
-      roles: List<String>.from(json['roles'] ?? []),
+      roles: json['roles'] is List
+          ? List<String>.from(json['roles'])
+          : json['role'] is String
+              ? [json['role'] as String]
+              : const [],
       isVerified: json['isVerified'] ?? false,
       createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
     );

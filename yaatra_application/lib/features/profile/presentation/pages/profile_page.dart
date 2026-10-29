@@ -90,14 +90,14 @@ class ProfilePage extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 // Menu items
-                _buildMenuItem(context, Icons.person_outline, 'Edit Profile', () {}),
+                _buildMenuItem(context, Icons.person_outline, 'Edit Profile', () => context.push('/profile/edit')),
                 if (user.isDriver) ...[
-                  _buildMenuItem(context, Icons.directions_car_outlined, 'My Vehicles', () {}),
-                  _buildMenuItem(context, Icons.verified_user_outlined, 'Documents', () {}),
-                  _buildMenuItem(context, Icons.star_outline, 'Ratings', () {}),
+                  _buildMenuItem(context, Icons.directions_car_outlined, 'My Vehicles', () => context.push('/profile/vehicles')),
+                  _buildMenuItem(context, Icons.verified_user_outlined, 'Documents', () => context.push('/profile/documents')),
+                  _buildMenuItem(context, Icons.star_outline, 'Ratings', () => context.push('/profile/ratings')),
                 ],
-                _buildMenuItem(context, Icons.location_on_outlined, 'Saved Places', () {}),
-                _buildMenuItem(context, Icons.help_outline, 'Help & Support', () {}),
+                _buildMenuItem(context, Icons.location_on_outlined, 'Saved Places', () => context.push('/profile/places')),
+                _buildMenuItem(context, Icons.help_outline, 'Help & Support', () => context.push('/profile/help')),
                 _buildMenuItem(context, Icons.shield_outlined, 'Safety', () => context.push('/safety')),
                 _buildMenuItem(context, Icons.settings_outlined, 'Settings', () => context.push('/settings')),
                 const SizedBox(height: 16),

@@ -26,6 +26,12 @@ import '../../features/notifications/presentation/pages/notification_center_page
 import '../../features/safety/presentation/pages/safety_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
+import '../../features/profile/presentation/pages/my_vehicles_page.dart';
+import '../../features/profile/presentation/pages/documents_page.dart';
+import '../../features/profile/presentation/pages/ratings_page.dart';
+import '../../features/profile/presentation/pages/help_support_page.dart';
+import '../../features/profile/presentation/pages/saved_places_page.dart';
 import '../../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../../features/auth/providers/auth_providers.dart';
 
@@ -60,6 +66,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile-setup',
         builder: (context, state) => const ProfileSetupPage(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const EditProfilePage(),
+      ),
+      GoRoute(
+        path: '/profile/vehicles',
+        builder: (context, state) => const MyVehiclesPage(),
+      ),
+      GoRoute(
+        path: '/profile/documents',
+        builder: (context, state) => const DocumentsPage(),
+      ),
+      GoRoute(
+        path: '/profile/ratings',
+        builder: (context, state) => const RatingsPage(),
+      ),
+      GoRoute(
+        path: '/profile/help',
+        builder: (context, state) => const HelpSupportPage(),
+      ),
+      GoRoute(
+        path: '/profile/places',
+        builder: (context, state) => const SavedPlacesPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),

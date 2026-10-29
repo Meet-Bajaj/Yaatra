@@ -58,8 +58,8 @@ class UserModel {
   }
 
   bool get hasRole => roles.isNotEmpty;
-  bool get isRider => roles.contains('RIDER');
-  bool get isDriver => roles.contains('DRIVER');
-  bool get isProfessional => roles.contains('PROFESSIONAL');
+  bool get isRider => roles.contains('RIDER') || roles.isEmpty;
+  bool get isDriver => roles.contains('DRIVER') || roles.contains('BOTH') || roles.contains('PROFESSIONAL');
+  bool get isProfessional => roles.contains('PROFESSIONAL') || roles.contains('BOTH');
   bool get isAdmin => roles.contains('ADMIN');
 }
